@@ -17,10 +17,11 @@ class IdempotencyReplay(Exception):
         self.order = order
 
 
-def reserve_phase(reseller: CustomUser, product, quantity: int, idempotency_key: str) -> Order:
+def reserve_phase(reseller: CustomUser, variant, quantity: int, idempotency_key: str) -> Order:
+    product = variant.product
     with transaction.atomic():
         reseller = CustomUser.objects.select_for_update().get(id=reseller.id)
-        total = product.price_in_credits * Decimal(str(quantity))
+        total = variant.price_in_credits * Decimal(str(quantity))
         if reseller.credit_balance < total:
             raise InsufficientCredits(
                 f"Insufficient credits. Required: {total}, Available: {reseller.credit_balance}"
@@ -30,9 +31,10 @@ def reserve_phase(reseller: CustomUser, product, quantity: int, idempotency_key:
         order = Order.objects.create(
             reseller=reseller,
             product=product,
+            variant=variant,
             quantity=quantity,
-            unit_price_at_purchase=product.price_in_credits,
-            product_name_at_purchase=product.name,
+            unit_price_at_purchase=variant.price_in_credits,
+            product_name_at_purchase=f"{product.name} - {variant.get_duration_months_display()}",
             total_credits=total,
             status=Order.Status.PENDING,
             idempotency_key=idempotency_key,
@@ -63,16 +65,17 @@ def fulfill_sync(order: Order, provider=None):
     for idx in range(order.quantity):
         try:
             data = provider.create_line(
-                pack_id=order.product.external_pack_id,
-                months=order.product.duration_months,
+                pack_id=order.variant.external_pack_id,
+                months=order.variant.duration_months,
             )
-            dns_domain = data.get('dns_domain') or build_m3u_url(data['username'], data['password'])
+            dns_domain = data.get('dns_domain') or build_m3u_url(data['user_id'], data['password'])
             cred = Credential.objects.create(
                 order=order,
-                external_username=data['username'],
+                external_username=data['user_id'],
+                streaming_username=data.get('streaming_username', ''),
                 encrypted_password=encrypt_password(data['password']),
                 dns_domain=dns_domain,
-                expires_at=timezone.now() + timedelta(days=30 * order.product.duration_months),
+                expires_at=timezone.now() + timedelta(days=30 * order.variant.duration_months),
             )
             credentials.append(cred)
         except Exception as e:

@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 from django.urls import path
 from django.contrib import messages
 from django.template.response import TemplateResponse
-from .models import CustomUser, Product, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
+from .models import CustomUser, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
 
 
 class AddCreditsForm(forms.Form):
@@ -66,10 +66,19 @@ class CustomUserAdmin(BaseUserAdmin):
     )
 
 
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 1
+    min_num = 1
+    ordering = ['duration_months']
+    fields = ['duration_months', 'external_pack_id', 'price_in_credits', 'is_active']
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'duration_months', 'price_in_credits', 'is_active', 'created_at')
-    list_filter = ('category', 'is_active', 'duration_months')
+    inlines = [ProductVariantInline]
+    list_display = ('name', 'category', 'is_active', 'created_at')
+    list_filter = ('category', 'is_active')
     search_fields = ('name',)
     actions = ['archive_products']
 
@@ -112,10 +121,11 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Credential)
 class CredentialAdmin(admin.ModelAdmin):
-    list_display = ('external_username', 'order', 'expires_at', 'is_revoked', 'created_at')
+    list_display = ('streaming_username', 'order', 'expires_at', 'is_revoked', 'created_at')
     list_filter = ('is_revoked', 'expires_at')
-    search_fields = ('external_username',)
-    readonly_fields = ('order', 'external_username', 'encrypted_password', 'dns_domain', 'expires_at', 'created_at')
+    search_fields = ('streaming_username', 'external_username')
+    readonly_fields = ('order', 'streaming_username', 'encrypted_password', 'dns_domain', 'expires_at', 'created_at')
+    exclude = ('external_username',)
     actions = ['toggle_revoke']
 
     def has_add_permission(self, request):

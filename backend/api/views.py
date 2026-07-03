@@ -8,7 +8,7 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import Product, Order, Credential
+from .models import Product, ProductVariant, Order, Credential
 from .serializers import (
     UserProfileSerializer, ProductSerializer,
     PurchaseSerializer, OrderListSerializer, OrderDetailSerializer,
@@ -94,16 +94,11 @@ class PurchaseView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        product_id = serializer.validated_data['product_id']
+        variant = serializer.validated_data['variant_id']
         quantity = serializer.validated_data['quantity']
 
         try:
-            product = Product.objects.get(id=product_id, is_active=True)
-        except Product.DoesNotExist:
-            return Response({'error': 'Product not found.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            order = reserve_phase(request.user, product, quantity, idempotency_key)
+            order = reserve_phase(request.user, variant, quantity, idempotency_key)
         except InsufficientCredits as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

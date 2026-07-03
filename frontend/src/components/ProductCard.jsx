@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
 
-// Inline UUID v4 generator (avoids needing the uuid package)
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -16,12 +15,17 @@ export default function ProductCard({ product, onError }) {
   const [buying, setBuying] = useState(false);
   const navigate = useNavigate();
 
+  const variants = product.variants || [];
+  const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
+  const showVariants = variants.length > 1;
+
   const handleBuy = async () => {
+    if (!selectedVariant) return;
     setBuying(true);
     const idempotencyKey = generateUUID();
     try {
       const { data } = await api.post('/purchase/', {
-        product_id: product.id,
+        variant_id: selectedVariant.id,
         quantity,
       }, {
         headers: { 'Idempotency-Key': idempotencyKey },
@@ -45,12 +49,30 @@ export default function ProductCard({ product, onError }) {
       <p className="text-sm text-gray-500 mt-1">{product.description}</p>
       <div className="mt-3 flex items-center justify-between">
         <span className="text-2xl font-bold text-indigo-600">
-          {product.price_in_credits}
+          {selectedVariant ? `${selectedVariant.price_in_credits}` : 'N/A'}
         </span>
-        <span className="text-sm text-gray-500">
-          {product.duration_months}mo
-        </span>
+        <span className="text-sm text-gray-500">credits</span>
       </div>
+      {showVariants && variants.length > 0 && (
+        <div className="mt-4">
+          <label className="text-sm text-gray-600 block mb-1">Duration:</label>
+          <div className="flex gap-2">
+            {variants.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setSelectedVariant(v)}
+                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                  selectedVariant?.id === v.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {v.display_name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mt-4 flex items-center space-x-3">
         <label className="text-sm text-gray-600">Qty:</label>
         <input
@@ -63,7 +85,7 @@ export default function ProductCard({ product, onError }) {
         />
         <button
           onClick={handleBuy}
-          disabled={buying}
+          disabled={buying || !selectedVariant}
           className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {buying ? 'Buying...' : 'Buy Now'}

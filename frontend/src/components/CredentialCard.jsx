@@ -2,7 +2,7 @@ import CopyButton from './CopyButton';
 import { formatCredentialBlock, downloadTextFile } from '../lib/helpers';
 
 export default function CredentialCard({ credential, index }) {
-  const { external_username: username, password, dns_domain: dns, expires_at: expiresAt } = credential;
+  const { username, password, dns_domain: dns, expires_at: expiresAt } = credential;
   const block = formatCredentialBlock(username, password, dns);
   const truncatedDns = dns.length > 50 ? dns.substring(0, 47) + '...' : dns;
 

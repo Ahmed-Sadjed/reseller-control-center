@@ -42,9 +42,9 @@ class Product(models.Model):
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=50, choices=Category.choices, default=Category.IPTV)
     description = models.TextField(blank=True)
-    external_pack_id = models.IntegerField()
-    duration_months = models.IntegerField(choices=Duration.choices)
-    price_in_credits = models.DecimalField(max_digits=10, decimal_places=2)
+    external_pack_id = models.IntegerField(null=True, blank=True)
+    duration_months = models.IntegerField(choices=Duration.choices, null=True, blank=True)
+    price_in_credits = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -59,6 +59,22 @@ class Product(models.Model):
         return self.name
 
 
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+    duration_months = models.IntegerField(choices=Product.Duration.choices)
+    external_pack_id = models.IntegerField()
+    price_in_credits = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['product', 'duration_months']
+
+    def __str__(self):
+        return f"{self.product.name} - {self.get_duration_months_display()}"
+
+
 class Order(models.Model):
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
@@ -69,6 +85,7 @@ class Order(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     reseller = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='orders')
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     unit_price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
     product_name_at_purchase = models.CharField(max_length=100)
@@ -92,6 +109,7 @@ class Order(models.Model):
 class Credential(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='credentials')
     external_username = models.CharField(max_length=100)
+    streaming_username = models.CharField(max_length=100, blank=True, null=True)
     encrypted_password = models.BinaryField()
     dns_domain = models.CharField(max_length=255)
     expires_at = models.DateTimeField()
@@ -104,7 +122,7 @@ class Credential(models.Model):
         ]
 
     def __str__(self):
-        return f"Credential {self.external_username} (Order {self.order_id})"
+        return f"{self.streaming_username or self.external_username} (Order {self.order_id})"
 
 
 class CreditTransaction(models.Model):

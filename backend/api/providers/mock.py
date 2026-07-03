@@ -11,14 +11,16 @@ class MockProviderAdapter(BaseProviderAdapter):
         if random.random() < self.fail_rate:
             raise Exception(f"Simulated provider failure (pack_id={pack_id}, months={months})")
 
-        username = f"mock_{uuid.uuid4().hex[:8]}"
+        user_id = f"mock_{uuid.uuid4().hex[:8]}"
+        streaming_username = uuid.uuid4().hex[:10]
         password = f"pass_{uuid.uuid4().hex[:6]}"
 
         return {
-            'username': username,
+            'user_id': user_id,
+            'streaming_username': streaming_username,
             'password': password,
             'raw_response': {
-                'user_id': username,
+                'user_id': user_id,
                 'password': password,
                 'status': 'mock_success',
                 'pack': pack_id,

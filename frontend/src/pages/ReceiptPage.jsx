@@ -33,7 +33,7 @@ export default function ReceiptPage() {
 
   const handleDownloadAll = () => {
     const allText = credentials
-      .map((c, i) => `#${i + 1}\n` + formatCredentialBlock(c.external_username, c.password, c.dns_domain))
+      .map((c, i) => `#${i + 1}\n` + formatCredentialBlock(c.username, c.password, c.dns_domain))
       .join('\n\n');
     downloadTextFile(allText, `receipt-${orderId}.txt`);
   };

@@ -60,19 +60,24 @@ class CMSOnlyAdapter(BaseProviderAdapter):
             raise ProviderInvalidResponseError("Missing 'user_id' in provider response")
 
         full_url = data.get('url', '')
+        streaming_username = ''
         password = ''
         if full_url:
             parsed = urllib.parse.urlparse(full_url)
             qs = urllib.parse.parse_qs(parsed.query)
+            streaming_username = qs.get('username', [''])[0]
             password = qs.get('password', [''])[0]
         if not password:
             password = username
+        if not streaming_username:
+            streaming_username = username
 
-        logger.info("Successfully created line: username=%s, has_password=%s, has_url=%s",
-                     username, bool(password), bool(full_url))
+        logger.info("Successfully created line: user_id=%s, streaming_username=%s, has_password=%s, has_url=%s",
+                     username, streaming_username, bool(password), bool(full_url))
 
         return {
-            'username': username,
+            'user_id': username,
+            'streaming_username': streaming_username,
             'password': password,
             'dns_domain': full_url,
             'raw_response': data,

@@ -1,6 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
-from .models import CustomUser, Product, Order, Credential
+from .models import CustomUser, Product, ProductVariant, Order, Credential
 from .utils import decrypt_password
 
 
@@ -15,23 +15,43 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'role', 'credit_balance']
 
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductVariant
+        fields = ['id', 'duration_months', 'display_name', 'external_pack_id',
+                   'price_in_credits', 'is_active']
+
+    def get_display_name(self, obj):
+        return obj.get_duration_months_display()
+
+
 class ProductSerializer(serializers.ModelSerializer):
+    variants = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category', 'description', 'duration_months',
-                   'price_in_credits', 'created_at']
+        fields = ['id', 'name', 'category', 'description', 'is_active',
+                   'variants', 'created_at']
+
+    def get_variants(self, obj):
+        active_variants = obj.variants.filter(is_active=True)
+        return ProductVariantSerializer(active_variants, many=True).data
 
 
 class PurchaseSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField()
+    variant_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1, max_value=50)
 
-    def validate_product_id(self, value):
+    def validate_variant_id(self, value):
         try:
-            product = Product.objects.get(id=value, is_active=True)
-        except Product.DoesNotExist:
-            raise serializers.ValidationError("Product not found or inactive.")
-        return value
+            variant = ProductVariant.objects.select_related('product').get(
+                id=value, is_active=True, product__is_active=True
+            )
+        except ProductVariant.DoesNotExist:
+            raise serializers.ValidationError("Variant not found or inactive.")
+        return variant
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -49,11 +69,12 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
 
 class CredentialSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='streaming_username')
     password = serializers.SerializerMethodField()
 
     class Meta:
         model = Credential
-        fields = ['id', 'external_username', 'password', 'dns_domain', 'expires_at']
+        fields = ['id', 'username', 'password', 'dns_domain', 'expires_at']
 
     def get_password(self, obj):
         return decrypt_password(obj.encrypted_password)
