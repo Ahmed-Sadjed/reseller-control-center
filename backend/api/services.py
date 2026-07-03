@@ -66,11 +66,12 @@ def fulfill_sync(order: Order, provider=None):
                 pack_id=order.product.external_pack_id,
                 months=order.product.duration_months,
             )
+            dns_domain = data.get('dns_domain') or build_m3u_url(data['username'], data['password'])
             cred = Credential.objects.create(
                 order=order,
                 external_username=data['username'],
                 encrypted_password=encrypt_password(data['password']),
-                dns_domain=build_m3u_url(data['username'], data['password']),
+                dns_domain=dns_domain,
                 expires_at=timezone.now() + timedelta(days=30 * order.product.duration_months),
             )
             credentials.append(cred)
@@ -84,11 +85,11 @@ def fulfill_sync(order: Order, provider=None):
         order.save()
         return credentials, None
     else:
-        compensate_order(order, failure_reason)
+        compensate_order(order, failure_reason, credentials)
         return [], failure_reason
 
 
-def compensate_order(order: Order, failure_reason: str):
+def compensate_order(order: Order, failure_reason: str, successful_credentials=None):
     with transaction.atomic():
         for cred in Credential.objects.filter(order=order):
             QuarantinedCredential.objects.create(
