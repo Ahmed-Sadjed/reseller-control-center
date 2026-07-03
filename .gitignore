@@ -25,6 +25,7 @@ frontend/dist/
 
 # Environment
 .env
+.env.example
 *.env.local
 
 # OS
