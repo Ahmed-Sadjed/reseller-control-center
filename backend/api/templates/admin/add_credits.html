@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Add Credits</h1>
+<p>Add credits to the following resellers:</p>
+<ul>
+  {% for user in users %}
+  <li>{{ user.username }} ({{ user.email }}) — Current balance: {{ user.credit_balance }}</li>
+  {% endfor %}
+</ul>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  {% for user in users %}
+  <input type="hidden" name="_selected_action" value="{{ user.pk }}" />
+  {% endfor %}
+  <input type="hidden" name="action" value="add_credits" />
+  <button type="submit" name="apply" value="Apply" class="default">Apply</button>
+  <a href="{% url 'admin:api_customuser_changelist' %}" class="button cancel-link">Cancel</a>
+</form>
+{% endblock %}

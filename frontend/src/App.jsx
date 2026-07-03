@@ -1,0 +1,99 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import CatalogPage from './pages/CatalogPage';
+import ReceiptPage from './pages/ReceiptPage';
+import ProcessingPage from './pages/ProcessingPage';
+import OrdersHistory from './pages/OrdersHistory';
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function PublicRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+  if (user) {
+    return <Navigate to="/catalog" replace />;
+  }
+  return children;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/catalog"
+            element={
+              <ProtectedRoute>
+                <CatalogPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/receipt/:orderId"
+            element={
+              <ProtectedRoute>
+                <ReceiptPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/processing/:orderId"
+            element={
+              <ProtectedRoute>
+                <ProcessingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <OrdersHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/catalog" replace />} />
+          <Route path="*" element={<Navigate to="/catalog" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
