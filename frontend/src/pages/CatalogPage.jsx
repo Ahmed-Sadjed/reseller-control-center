@@ -1,58 +1,55 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-import BalanceHeader from '../components/BalanceHeader';
-import ProductCard from '../components/ProductCard';
+import StatsCard from '../components/StatsCard';
+import CategoryCard from '../components/CategoryCard';
+import { useToast } from '../context/ToastContext';
 import api from '../lib/axios';
-import { useBalance } from '../hooks/useBalance';
 
 export default function CatalogPage() {
-  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const { balance, refresh } = useBalance();
+  const [stats, setStats] = useState(null);
+  const { addToast } = useToast();
 
-  const fetchProducts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const { data } = await api.get('/products/');
-      setProducts(data.results || data);
+      const [catRes, statsRes] = await Promise.all([
+        api.get('/categories/'),
+        api.get('/stats/'),
+      ]);
+      setCategories(catRes.data);
+      setStats(statsRes.data);
     } catch {
-      setError('Failed to load products');
+      addToast('Failed to load catalog data', 'error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  const handleError = (msg) => {
-    setError(msg);
-    setTimeout(() => setError(''), 5000);
-  };
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   return (
     <Layout>
       <div className="space-y-6">
-        <BalanceHeader balance={balance} />
-        {error && (
-          <div className="bg-red-50 text-red-700 px-4 py-3 rounded text-sm">
-            {error}
-          </div>
-        )}
-        <h1 className="text-2xl font-bold text-gray-900">Catalog</h1>
+        <StatsCard stats={stats} />
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Catalog</h1>
+          <Link
+            to="/products"
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            Browse All Products &rarr;
+          </Link>
+        </div>
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading products...</div>
-        ) : products.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">No products available.</div>
+          <div className="text-center py-12 text-gray-500">Loading...</div>
+        ) : categories.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">No categories available.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onError={handleError}
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {categories.map((cat, i) => (
+              <CategoryCard key={cat.id} category={cat} index={i} />
             ))}
           </div>
         )}

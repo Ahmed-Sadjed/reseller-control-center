@@ -1,6 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
-from .models import CustomUser, Product, ProductVariant, Order, Credential
+from .models import CustomUser, Category, Product, ProductVariant, Order, Credential, CreditTransaction
 from .utils import decrypt_password
 
 
@@ -13,6 +13,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'username', 'email', 'role', 'credit_balance']
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'slug', 'description', 'image', 'is_active',
+                  'sort_order', 'product_count']
+
+    def get_product_count(self, obj):
+        return obj.products.filter(is_active=True).count()
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -29,15 +41,28 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     variants = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_slug = serializers.CharField(source='category.slug', read_only=True)
+    provider_name = serializers.CharField(source='provider.name', read_only=True)
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category', 'description', 'is_active',
-                   'variants', 'created_at']
+        fields = ['id', 'name', 'category', 'category_name', 'category_slug',
+                  'provider', 'provider_name', 'description', 'image',
+                  'thumbnail_url', 'is_active', 'variants', 'created_at']
 
     def get_variants(self, obj):
-        active_variants = obj.variants.filter(is_active=True)
-        return ProductVariantSerializer(active_variants, many=True).data
+        active = getattr(obj, 'active_variants', None)
+        if active is not None:
+            return ProductVariantSerializer(active, many=True).data
+        return ProductVariantSerializer(obj.variants.filter(is_active=True), many=True).data
+
+    def get_thumbnail_url(self, obj):
+        try:
+            return obj.thumbnail.url if obj.image else None
+        except Exception:
+            return None
 
 
 class PurchaseSerializer(serializers.Serializer):

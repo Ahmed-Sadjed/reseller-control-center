@@ -1,5 +1,10 @@
+from hashlib import md5
 from django.conf import settings
+from django.core.cache import cache
+from django.db import connection
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+from django.contrib.postgres.search import SearchQuery, SearchRank
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -8,14 +13,19 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import Product, ProductVariant, Order, Credential
+from .models import Product, ProductVariant, Order, Credential, Category
 from .serializers import (
-    UserProfileSerializer, ProductSerializer,
+    UserProfileSerializer, CategorySerializer, ProductSerializer,
     PurchaseSerializer, OrderListSerializer, OrderDetailSerializer,
     CredentialSerializer, OrderStatusSerializer,
 )
 from .services import reserve_phase, fulfill_sync, check_idempotency, InsufficientCredits
 from .tasks import fulfill_order_async
+
+
+def _cache_key(prefix, request):
+    params = sorted(request.query_params.items())
+    return f'{prefix}:{md5(str(params).encode()).hexdigest()}'
 
 
 class LoginView(TokenObtainPairView):
@@ -44,14 +54,54 @@ class MeView(APIView):
         return Response(serializer.data)
 
 
+class CategoryListView(APIView):
+    def get(self, request):
+        cache_key = 'category_list'
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+        categories = Category.objects.filter(is_active=True)
+        serializer = CategorySerializer(categories, many=True)
+        cache.set(cache_key, serializer.data, 300)
+        return Response(serializer.data)
+
+
 class ProductListView(APIView):
     def get(self, request):
-        products = Product.objects.filter(is_active=True)
+        cache_key = _cache_key('product_list', request)
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+
+        products = Product.objects.filter(is_active=True).select_related('category', 'provider').prefetch_related(
+            Prefetch('variants', queryset=ProductVariant.objects.filter(is_active=True), to_attr='active_variants')
+        )
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            query = SearchQuery(search, config='simple')
+            products = (
+                products.annotate(rank=SearchRank('search_vector', query))
+                .filter(search_vector=query)
+                .order_by('-rank')
+            )
+
+        category_slug = request.query_params.get('category', '').strip()
+        if category_slug:
+            products = products.filter(category__slug=category_slug)
+
+        provider_id = request.query_params.get('provider', '').strip()
+        if provider_id:
+            products = products.filter(provider_id=provider_id)
+
         page = self.paginate_queryset(products, request)
         if page is not None:
             serializer = ProductSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            response = self.get_paginated_response(serializer.data)
+            cache.set(cache_key, response.data, 300)
+            return response
         serializer = ProductSerializer(products, many=True)
+        cache.set(cache_key, serializer.data, 300)
         return Response(serializer.data)
 
     @property
@@ -172,3 +222,77 @@ class OrderStatusView(APIView):
             'failure_reason': order.failure_reason,
         })
         return Response(serializer.data)
+
+
+class StatsView(APIView):
+    def get(self, request):
+        cache_key = f'stats:{request.user.id}'
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+        data = {
+            'total_products': Product.objects.filter(is_active=True).count(),
+            'total_categories': Category.objects.filter(is_active=True).count(),
+            'credit_balance': request.user.credit_balance,
+        }
+        cache.set(cache_key, data, 300)
+        return Response(data)
+
+
+class HealthCheckView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            connection.ensure_connection()
+            db_ok = True
+        except Exception:
+            db_ok = False
+        try:
+            cache.set('health_check', 1, 5)
+            cache_ok = cache.get('health_check') == 1
+        except Exception:
+            cache_ok = False
+        try:
+            from redis import Redis
+            r = Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                db=settings.REDIS_DB,
+            )
+            r.ping()
+            rq_ok = True
+        except Exception:
+            rq_ok = False
+        status_code = status.HTTP_200_OK if db_ok and cache_ok and rq_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+        return Response({
+            'status': 'healthy' if status_code == 200 else 'unhealthy',
+            'database': 'ok' if db_ok else 'error',
+            'cache': 'ok' if cache_ok else 'error',
+            'rq_redis': 'ok' if rq_ok else 'error',
+        }, status=status_code)
+
+
+class RQStatsView(APIView):
+    def get(self, request):
+        from django_rq import get_queue
+        from redis import Redis
+        r = Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            db=settings.REDIS_DB,
+        )
+        queue = get_queue('default')
+        return Response({
+            'default_queue': {
+                'count': queue.count,
+                'failed_count': queue.failed_job_registry.count,
+                'started_count': queue.started_job_registry.count,
+                'deferred_count': queue.deferred_job_registry.count,
+                'scheduled_count': queue.scheduled_job_registry.count,
+            },
+            'redis_info': {
+                'used_memory': r.info().get('used_memory_human', 'N/A'),
+                'connected_clients': r.info().get('connected_clients', 0),
+            },
+        })

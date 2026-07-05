@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import CatalogPage from './pages/CatalogPage';
+import ProductsPage from './pages/ProductsPage';
 import ReceiptPage from './pages/ReceiptPage';
 import ProcessingPage from './pages/ProcessingPage';
 import OrdersHistory from './pages/OrdersHistory';
@@ -41,6 +43,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ToastProvider>
         <Routes>
           <Route
             path="/login"
@@ -63,6 +66,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <CatalogPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <ProductsPage />
               </ProtectedRoute>
             }
           />
@@ -93,6 +104,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/catalog" replace />} />
           <Route path="*" element={<Navigate to="/catalog" replace />} />
         </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

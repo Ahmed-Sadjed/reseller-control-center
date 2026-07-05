@@ -22,6 +22,9 @@ export default function Layout({ children }) {
               <Link to="/catalog" className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm">
                 Catalog
               </Link>
+              <Link to="/products" className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm">
+                Products
+              </Link>
               <Link to="/orders" className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm">
                 Orders
               </Link>

@@ -1,12 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils import timezone
+from django.utils.html import format_html
 from django import forms
 from django.shortcuts import redirect
 from django.urls import path
 from django.contrib import messages
 from django.template.response import TemplateResponse
-from .models import CustomUser, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
+from .models import CustomUser, Provider, Category, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
 
 
 class AddCreditsForm(forms.Form):
@@ -66,6 +67,54 @@ class CustomUserAdmin(BaseUserAdmin):
     )
 
 
+class ProviderAdminForm(forms.ModelForm):
+    raw_token = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=True),
+        label='API Token',
+        help_text='Enter a new token to update. Leave blank to keep existing.',
+    )
+
+    class Meta:
+        model = Provider
+        fields = '__all__'
+
+
+@admin.register(Provider)
+class ProviderAdmin(admin.ModelAdmin):
+    form = ProviderAdminForm
+    list_display = ('name', 'api_endpoint', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name',)
+    readonly_fields = ('api_token',)
+
+    def save_model(self, request, obj, form, change):
+        raw_token = form.cleaned_data.get('raw_token')
+        if raw_token:
+            obj.set_token(raw_token)
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'sort_order', 'product_count', 'is_active', 'image_tag')
+    prepopulated_fields = {'slug': ('name',)}
+    search_fields = ('name',)
+    list_editable = ('sort_order', 'is_active')
+    fields = ('name', 'slug', 'description', 'image', 'image_tag', 'is_active', 'sort_order')
+    readonly_fields = ('image_tag',)
+
+    def product_count(self, obj):
+        return obj.products.filter(is_active=True).count()
+    product_count.short_description = 'Active Products'
+
+    def image_tag(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="max-height:100px;border-radius:4px;" />', obj.image.url)
+        return '-'
+    image_tag.short_description = 'Preview'
+
+
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     extra = 1
@@ -77,10 +126,24 @@ class ProductVariantInline(admin.TabularInline):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductVariantInline]
-    list_display = ('name', 'category', 'is_active', 'created_at')
-    list_filter = ('category', 'is_active')
+    list_display = ('name', 'category', 'provider', 'is_active', 'image_tag', 'created_at')
+    list_filter = ('category', 'provider', 'is_active')
     search_fields = ('name',)
+    autocomplete_fields = ('category', 'provider')
+    readonly_fields = ('image_tag',)
+    fieldsets = (
+        (None, {'fields': ('name', 'category', 'provider', 'description')}),
+        ('Pricing & Duration', {'fields': ('duration_months', 'price_in_credits', 'external_pack_id')}),
+        ('Media', {'fields': ('image', 'image_tag')}),
+        ('Status', {'fields': ('is_active',)}),
+    )
     actions = ['archive_products']
+
+    def image_tag(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="max-height:100px;border-radius:4px;" />', obj.image.url)
+        return '-'
+    image_tag.short_description = 'Preview'
 
     @admin.action(description='Archive selected products')
     def archive_products(self, request, queryset):

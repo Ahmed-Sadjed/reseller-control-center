@@ -4,6 +4,10 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.postgres.search import SearchVectorField
+from django.contrib.postgres.indexes import GinIndex
+from imagekit.models import ImageSpecField
+from imagekit.processors import ResizeToFill
 
 
 class CustomUser(AbstractUser):
@@ -27,12 +31,47 @@ class CustomUser(AbstractUser):
         return f"{self.username} ({self.get_role_display()})"
 
 
-class Product(models.Model):
-    class Category(models.TextChoices):
-        IPTV = 'IPTV', 'IPTV'
-        GAMING = 'GAMING', 'Gaming'
-        STREAMING = 'STREAMING', 'Streaming'
+class Provider(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    api_endpoint = models.URLField(max_length=500, blank=True)
+    api_token = models.BinaryField(editable=False, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    def set_token(self, raw_token: str):
+        from .utils import encrypt_password
+        self.api_token = encrypt_password(raw_token)
+
+    def get_token(self) -> str:
+        from .utils import decrypt_password
+        return decrypt_password(self.api_token)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Provider'
+        verbose_name_plural = 'Providers'
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to='categories/', blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+        verbose_name_plural = 'Categories'
+
+    def __str__(self):
+        return self.name
+
+
+class Product(models.Model):
     class Duration(models.IntegerChoices):
         ONE_MONTH = 1, '1 Month'
         THREE_MONTHS = 3, '3 Months'
@@ -40,19 +79,42 @@ class Product(models.Model):
         TWELVE_MONTHS = 12, '12 Months'
 
     name = models.CharField(max_length=100)
-    category = models.CharField(max_length=50, choices=Category.choices, default=Category.IPTV)
+    category_old = models.CharField(
+        max_length=50,
+        choices=[('IPTV', 'IPTV'), ('GAMING', 'Gaming'), ('STREAMING', 'Streaming')],
+        default='IPTV',
+        null=True,
+        blank=True,
+    )
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', null=True, blank=True)
+    provider = models.ForeignKey(Provider, on_delete=models.PROTECT, related_name='products', null=True, blank=True)
     description = models.TextField(blank=True)
     external_pack_id = models.IntegerField(null=True, blank=True)
     duration_months = models.IntegerField(choices=Duration.choices, null=True, blank=True)
     price_in_credits = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    image = models.ImageField(upload_to='products/originals/', blank=True, null=True)
+    thumbnail = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(300, 300)],
+        format='WEBP',
+        options={'quality': 80}
+    )
+    product_image = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(800, 800)],
+        format='WEBP',
+        options={'quality': 85}
+    )
     is_active = models.BooleanField(default=True)
+    search_vector = SearchVectorField(null=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['is_active']),
-            models.Index(fields=['category']),
+            models.Index(fields=['is_active', 'category']),
+            GinIndex(fields=['search_vector']),
         ]
 
     def __str__(self):
