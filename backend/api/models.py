@@ -32,9 +32,26 @@ class CustomUser(AbstractUser):
 
 
 class Provider(models.Model):
+    class AdapterKey(models.TextChoices):
+        NEO4K = 'neo4k', 'NEO 4K'
+        HOTPLAYER = 'hotplayer', 'HotPlayer'
+        MOCK = 'mock', 'Mock'
+
     name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    adapter_key = models.CharField(
+        max_length=20,
+        choices=AdapterKey.choices,
+        default=AdapterKey.MOCK,
+        help_text='Determines which adapter class handles API calls for this provider.',
+    )
     api_endpoint = models.URLField(max_length=500, blank=True)
     api_token = models.BinaryField(editable=False, null=True, blank=True)
+    extra_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Provider-specific config (e.g. {"dns_domain": "kmapp.xyz", "port": 8080}).',
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -123,7 +140,16 @@ class Product(models.Model):
 
 class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
-    duration_months = models.IntegerField(choices=Product.Duration.choices)
+    duration_months = models.IntegerField(
+        choices=Product.Duration.choices,
+        null=True,
+        blank=True,
+        help_text='Leave blank for Lifetime variants.',
+    )
+    is_lifetime = models.BooleanField(
+        default=False,
+        help_text='Check for subscriptions that never expire (e.g. HotPlayer FOREVER).',
+    )
     external_pack_id = models.IntegerField()
     price_in_credits = models.DecimalField(max_digits=10, decimal_places=2)
     is_active = models.BooleanField(default=True)
@@ -131,9 +157,11 @@ class ProductVariant(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['product', 'duration_months']
+        unique_together = ['product', 'external_pack_id']
 
     def __str__(self):
+        if self.is_lifetime:
+            return f"{self.product.name} - Lifetime"
         return f"{self.product.name} - {self.get_duration_months_display()}"
 
 
@@ -174,7 +202,17 @@ class Credential(models.Model):
     streaming_username = models.CharField(max_length=100, blank=True, null=True)
     encrypted_password = models.BinaryField()
     dns_domain = models.CharField(max_length=255)
-    expires_at = models.DateTimeField()
+    m3u_url = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        help_text='Full M3U playlist URL (separate from base DNS domain).',
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Null for Lifetime subscriptions.',
+    )
     is_revoked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

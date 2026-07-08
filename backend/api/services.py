@@ -4,8 +4,8 @@ from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 from .models import CustomUser, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
-from .utils import encrypt_password, build_m3u_url
-from .providers import get_provider_adapter
+from .utils import encrypt_password
+from .providers import get_adapter_for_provider
 
 
 class InsufficientCredits(Exception):
@@ -57,7 +57,7 @@ def reserve_phase(reseller: CustomUser, variant, quantity: int, idempotency_key:
 
 def fulfill_sync(order: Order, provider=None):
     if provider is None:
-        provider = get_provider_adapter()
+        provider = get_adapter_for_provider(order.product.provider)
     credentials = []
     failed_at = None
     failure_reason = None
@@ -67,15 +67,16 @@ def fulfill_sync(order: Order, provider=None):
             data = provider.create_line(
                 pack_id=order.variant.external_pack_id,
                 months=order.variant.duration_months,
+                is_lifetime=order.variant.is_lifetime,
             )
-            dns_domain = data.get('dns_domain') or build_m3u_url(data['user_id'], data['password'])
             cred = Credential.objects.create(
                 order=order,
                 external_username=data['user_id'],
                 streaming_username=data.get('streaming_username', ''),
                 encrypted_password=encrypt_password(data['password']),
-                dns_domain=dns_domain,
-                expires_at=timezone.now() + timedelta(days=30 * order.variant.duration_months),
+                dns_domain=data.get('dns_domain', ''),
+                m3u_url=data.get('m3u_url', ''),
+                expires_at=data.get('expires_at'),
             )
             credentials.append(cred)
         except Exception as e:

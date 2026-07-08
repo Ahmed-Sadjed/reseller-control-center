@@ -96,13 +96,42 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 class CredentialSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='streaming_username')
     password = serializers.SerializerMethodField()
+    provider_adapter_key = serializers.SerializerMethodField()
 
     class Meta:
         model = Credential
-        fields = ['id', 'username', 'password', 'dns_domain', 'expires_at']
+        fields = ['id', 'username', 'password', 'dns_domain', 'm3u_url',
+                  'expires_at', 'provider_adapter_key']
 
     def get_password(self, obj):
         return decrypt_password(obj.encrypted_password)
+
+    def get_provider_adapter_key(self, obj):
+        if obj.order.product and obj.order.product.provider:
+            return obj.order.product.provider.adapter_key
+        return None
+
+
+class DeviceActivateSerializer(serializers.Serializer):
+    pack_id = serializers.IntegerField()
+    duration = serializers.ChoiceField(choices=[
+        'MONTHS_1', 'MONTHS_3', 'MONTHS_6',
+        'MONTHS_12', 'YEAR_1', 'FOREVER',
+    ])
+    extend = serializers.BooleanField(default=False)
+
+
+class PlaylistEntrySerializer(serializers.Serializer):
+    url = serializers.URLField()
+    name = serializers.CharField(max_length=100, required=False, default='Playlist')
+
+
+class AddPlaylistsSerializer(serializers.Serializer):
+    playlists = serializers.ListField(
+        child=PlaylistEntrySerializer(),
+        min_length=1,
+        max_length=5,
+    )
 
 
 class OrderStatusSerializer(serializers.Serializer):

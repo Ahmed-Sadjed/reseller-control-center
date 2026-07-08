@@ -16,4 +16,10 @@ urlpatterns = [
     path('stats/', views.StatsView.as_view(), name='stats'),
     path('health/', views.HealthCheckView.as_view(), name='health'),
     path('rq/', views.RQStatsView.as_view(), name='rq-stats'),
+    path('credentials/<int:credential_id>/device/status/',
+         views.CredentialDeviceStatusView.as_view(), name='credential-device-status'),
+    path('credentials/<int:credential_id>/device/activate/',
+         views.CredentialDeviceActivateView.as_view(), name='credential-device-activate'),
+    path('credentials/<int:credential_id>/device/playlists/',
+         views.CredentialDevicePlaylistsView.as_view(), name='credential-device-playlists'),
 ]

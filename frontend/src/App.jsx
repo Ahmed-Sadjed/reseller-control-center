@@ -8,6 +8,7 @@ import ProductsPage from './pages/ProductsPage';
 import ReceiptPage from './pages/ReceiptPage';
 import ProcessingPage from './pages/ProcessingPage';
 import OrdersHistory from './pages/OrdersHistory';
+import DeviceManagerPage from './pages/DeviceManagerPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -98,6 +99,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <OrdersHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/credentials/:credentialId/manage"
+            element={
+              <ProtectedRoute>
+                <DeviceManagerPage />
               </ProtectedRoute>
             }
           />

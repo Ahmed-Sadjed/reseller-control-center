@@ -8,6 +8,8 @@ from django.urls import path
 from django.contrib import messages
 from django.template.response import TemplateResponse
 from .models import CustomUser, Provider, Category, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
+from .device_services import check_device, add_playlists, get_credential_for_user
+from .providers import get_adapter_for_provider
 
 
 class AddCreditsForm(forms.Form):
@@ -83,10 +85,11 @@ class ProviderAdminForm(forms.ModelForm):
 @admin.register(Provider)
 class ProviderAdmin(admin.ModelAdmin):
     form = ProviderAdminForm
-    list_display = ('name', 'api_endpoint', 'is_active', 'created_at')
-    list_filter = ('is_active',)
-    search_fields = ('name',)
+    list_display = ('name', 'slug', 'adapter_key', 'api_endpoint', 'is_active', 'created_at')
+    list_filter = ('is_active', 'adapter_key')
+    search_fields = ('name', 'slug')
     readonly_fields = ('api_token',)
+    prepopulated_fields = {'slug': ('name',)}
 
     def save_model(self, request, obj, form, change):
         raw_token = form.cleaned_data.get('raw_token')
@@ -120,7 +123,7 @@ class ProductVariantInline(admin.TabularInline):
     extra = 1
     min_num = 1
     ordering = ['duration_months']
-    fields = ['duration_months', 'external_pack_id', 'price_in_credits', 'is_active']
+    fields = ['is_lifetime', 'duration_months', 'external_pack_id', 'price_in_credits', 'is_active']
 
 
 @admin.register(Product)
@@ -187,9 +190,9 @@ class CredentialAdmin(admin.ModelAdmin):
     list_display = ('streaming_username', 'order', 'expires_at', 'is_revoked', 'created_at')
     list_filter = ('is_revoked', 'expires_at')
     search_fields = ('streaming_username', 'external_username')
-    readonly_fields = ('order', 'streaming_username', 'encrypted_password', 'dns_domain', 'expires_at', 'created_at')
+    readonly_fields = ('order', 'streaming_username', 'encrypted_password', 'dns_domain', 'm3u_url', 'expires_at', 'created_at')
     exclude = ('external_username',)
-    actions = ['toggle_revoke']
+    actions = ['toggle_revoke', 'check_device', 'admin_add_playlist']
 
     def has_add_permission(self, request):
         return False
@@ -200,6 +203,48 @@ class CredentialAdmin(admin.ModelAdmin):
             cred.is_revoked = not cred.is_revoked
             cred.save()
         self.message_user(request, f'Toggled revoke for {queryset.count()} credential(s).', messages.SUCCESS)
+
+    @admin.action(description='Check device status')
+    def check_device(self, request, queryset):
+        results = []
+        for cred in queryset:
+            mac = cred.streaming_username or cred.external_username
+            try:
+                adapter = get_adapter_for_provider(cred.order.product.provider)
+                data = adapter.check_device(mac)
+                results.append(f"{mac}: OK - {data.get('status', 'unknown')}")
+            except NotImplementedError:
+                results.append(f"{mac}: Device check not supported")
+            except Exception as e:
+                results.append(f"{mac}: Error - {e}")
+        self.message_user(request, '\n'.join(results), messages.SUCCESS)
+
+    @admin.action(description='Add playlist URL to credential')
+    def admin_add_playlist(self, request, queryset):
+        if 'apply' in request.POST:
+            url = request.POST.get('playlist_url', '').strip()
+            name = request.POST.get('playlist_name', 'Admin Playlist').strip()
+            if not url:
+                self.message_user(request, 'Playlist URL is required.', messages.ERROR)
+                return
+            results = []
+            for cred in queryset:
+                mac = cred.streaming_username or cred.external_username
+                try:
+                    adapter = get_adapter_for_provider(cred.order.product.provider)
+                    data = adapter.add_playlists(mac, [{'url': url, 'name': name}])
+                    results.append(f"{mac}: Added")
+                except NotImplementedError:
+                    results.append(f"{mac}: Playlists not supported")
+                except Exception as e:
+                    results.append(f"{mac}: Error - {e}")
+            self.message_user(request, '\n'.join(results), messages.SUCCESS)
+            return redirect(request.get_full_path())
+
+        return TemplateResponse(request, 'admin/admin_add_playlist.html', {
+            'credentials': queryset,
+            'title': 'Add Playlist to Credentials',
+        })
 
 
 @admin.register(CreditTransaction)

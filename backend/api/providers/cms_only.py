@@ -1,8 +1,9 @@
 import logging
 import urllib.parse
+from datetime import timedelta
+from django.utils import timezone
 
 import requests
-from django.conf import settings
 
 from .base import BaseProviderAdapter, ProviderAPIError, ProviderTimeoutError, ProviderInvalidResponseError
 
@@ -10,13 +11,15 @@ logger = logging.getLogger(__name__)
 
 
 class CMSOnlyAdapter(BaseProviderAdapter):
-    def __init__(self, api_url=None, api_key=None, dns_domain=None, timeout=30):
-        self.api_url = api_url or settings.IPTV_API_URL
-        self.api_key = api_key or settings.IPTV_API_KEY
-        self.dns_domain = dns_domain or settings.IPTV_DNS
-        self.timeout = timeout
+    def __init__(self, provider):
+        super().__init__(provider)
+        self.api_url = provider.api_endpoint
+        self.api_key = provider.get_token()
+        self.dns_domain = provider.extra_config.get('dns_domain', 'kmapp.xyz')
+        self.port = provider.extra_config.get('port', 8080)
+        self.timeout = provider.extra_config.get('timeout', 30)
 
-    def create_line(self, pack_id, months):
+    def create_line(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
         params = {
             'action': 'new',
             'type': 'm3u',
@@ -71,14 +74,22 @@ class CMSOnlyAdapter(BaseProviderAdapter):
             password = username
         if not streaming_username:
             streaming_username = username
+            
+        m3u_url = full_url or f"http://{self.dns_domain}:{self.port}/get.php?username={streaming_username}&password={password}"
 
         logger.info("Successfully created line: user_id=%s, streaming_username=%s, has_password=%s, has_url=%s",
                      username, streaming_username, bool(password), bool(full_url))
+                     
+        expires_at = None
+        if not is_lifetime:
+            expires_at = timezone.now() + timedelta(days=30 * (months or 1))
 
         return {
             'user_id': username,
             'streaming_username': streaming_username,
             'password': password,
-            'dns_domain': full_url,
+            'dns_domain': self.dns_domain,
+            'm3u_url': m3u_url,
+            'expires_at': expires_at,
             'raw_response': data,
         }

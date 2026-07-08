@@ -181,10 +181,7 @@ CACHES = {
 
 FERNET_KEY = os.environ.get('FERNET_KEY', '')
 
-IPTV_API_URL = os.environ.get('IPTV_API_URL', 'https://4k.cms-only.ru/api/api.php')
-IPTV_API_KEY = os.environ.get('IPTV_API_KEY', '')
-IPTV_DNS = os.environ.get('IPTV_DNS', 'kmapp.xyz')
-IPTV_PORT = int(os.environ.get('IPTV_PORT', 8080))
+
 
 RATE_LIMIT_PURCHASE = int(os.environ.get('RATE_LIMIT_PURCHASE', 5))
 ASYNC_THRESHOLD = int(os.environ.get('ASYNC_THRESHOLD', 10))
