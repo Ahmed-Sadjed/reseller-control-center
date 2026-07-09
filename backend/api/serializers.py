@@ -99,11 +99,14 @@ class CredentialSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='streaming_username')
     password = serializers.SerializerMethodField()
     provider_adapter_key = serializers.SerializerMethodField()
+    credential_data = serializers.SerializerMethodField()
+    provider_config = serializers.SerializerMethodField()
 
     class Meta:
         model = Credential
         fields = ['id', 'username', 'password', 'dns_domain', 'm3u_url',
-                  'expires_at', 'provider_adapter_key']
+                  'expires_at', 'provider_adapter_key', 'credential_data',
+                  'provider_config']
 
     def get_password(self, obj):
         return decrypt_password(obj.encrypted_password)
@@ -112,6 +115,31 @@ class CredentialSerializer(serializers.ModelSerializer):
         if obj.order.product and obj.order.product.provider:
             return obj.order.product.provider.adapter_key
         return None
+
+    def get_credential_data(self, obj):
+        """
+        Merge the decrypted password back into the data field at read time.
+        This ensures the frontend receives complete credential data (including secrets)
+        without storing secrets in plaintext JSONB.
+        """
+        data = dict(obj.data) if obj.data else {}
+        decrypted = decrypt_password(obj.encrypted_password)
+        if decrypted:
+            data['secret_password'] = decrypted
+        return data
+
+    def get_provider_config(self, obj):
+        """
+        Read display schema from the Provider's extra_config.
+        Access via obj.order.product.provider (not variant).
+        """
+        try:
+            provider = obj.order.product.provider
+            if provider and provider.extra_config:
+                return provider.extra_config.get('display', {})
+        except Exception:
+            pass
+        return {}
 
 
 class DeviceActivateSerializer(serializers.Serializer):
@@ -142,17 +170,37 @@ class CredentialListSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='order.product_name_at_purchase')
     order_uuid = serializers.UUIDField(source='order.uuid')
     order_created = serializers.DateTimeField(source='order.created_at')
+    credential_data = serializers.SerializerMethodField()
+    provider_config = serializers.SerializerMethodField()
 
     class Meta:
         model = Credential
         fields = ['id', 'username', 'expires_at', 'is_revoked',
                   'provider_adapter_key', 'product_name', 'order_uuid', 'order_created',
-                  'created_at']
+                  'credential_data', 'provider_config', 'created_at']
 
     def get_provider_adapter_key(self, obj):
         if obj.order.product and obj.order.product.provider:
             return obj.order.product.provider.adapter_key
         return None
+
+    def get_credential_data(self, obj):
+        """Merge decrypted password into data for list view too."""
+        data = dict(obj.data) if obj.data else {}
+        decrypted = decrypt_password(obj.encrypted_password)
+        if decrypted:
+            data['secret_password'] = decrypted
+        return data
+
+    def get_provider_config(self, obj):
+        """Read display schema from Provider's extra_config."""
+        try:
+            provider = obj.order.product.provider
+            if provider and provider.extra_config:
+                return provider.extra_config.get('display', {})
+        except Exception:
+            pass
+        return {}
 
 
 class OrderStatusSerializer(serializers.Serializer):

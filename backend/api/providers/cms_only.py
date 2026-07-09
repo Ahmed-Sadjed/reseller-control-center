@@ -19,7 +19,11 @@ class CMSOnlyAdapter(BaseProviderAdapter):
         self.port = provider.extra_config.get('port', 8080)
         self.timeout = provider.extra_config.get('timeout', 30)
 
-    def create_line(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
+    @property
+    def capabilities(self) -> set:
+        return {'create'}
+
+    def create(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
         params = {
             'action': 'new',
             'type': 'm3u',
@@ -74,22 +78,23 @@ class CMSOnlyAdapter(BaseProviderAdapter):
             password = username
         if not streaming_username:
             streaming_username = username
-            
+
         m3u_url = full_url or f"http://{self.dns_domain}:{self.port}/get.php?username={streaming_username}&password={password}"
 
         logger.info("Successfully created line: user_id=%s, streaming_username=%s, has_password=%s, has_url=%s",
                      username, streaming_username, bool(password), bool(full_url))
-                     
+
         expires_at = None
         if not is_lifetime:
             expires_at = timezone.now() + timedelta(days=30 * (months or 1))
 
         return {
-            'user_id': username,
-            'streaming_username': streaming_username,
-            'password': password,
-            'dns_domain': self.dns_domain,
-            'm3u_url': m3u_url,
+            'external_id': username,
+            'credentials': {
+                'username': streaming_username,
+                'secret_password': password,
+                'm3u_url': m3u_url,
+            },
             'expires_at': expires_at,
             'raw_response': data,
         }

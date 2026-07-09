@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.template.response import TemplateResponse
 from .models import CustomUser, Provider, Category, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
 from .device_services import check_device, add_playlists, get_credential_for_user
-from .providers import get_adapter_for_provider
+from .providers import get_adapter_for_provider, ADAPTER_REGISTRY
 
 
 class AddCreditsForm(forms.Form):
@@ -85,11 +85,29 @@ class ProviderAdminForm(forms.ModelForm):
 @admin.register(Provider)
 class ProviderAdmin(admin.ModelAdmin):
     form = ProviderAdminForm
-    list_display = ('name', 'slug', 'adapter_key', 'api_endpoint', 'is_active', 'created_at')
+    list_display = ('name', 'slug', 'adapter_key', 'capabilities_display', 'api_endpoint', 'is_active', 'created_at')
     list_filter = ('is_active', 'adapter_key')
     search_fields = ('name', 'slug')
     readonly_fields = ('api_token',)
     prepopulated_fields = {'slug': ('name',)}
+
+    def capabilities_display(self, obj):
+        """
+        CRITICAL: Bypass USE_MOCK_PROVIDER — look up the adapter class directly
+        from ADAPTER_REGISTRY so we show the real capabilities per provider,
+        not MockProviderAdapter's capabilities for all of them.
+        """
+        adapter_class = ADAPTER_REGISTRY.get(obj.adapter_key)
+        if adapter_class:
+            try:
+                # Instantiate with the provider to read capabilities
+                adapter = adapter_class(provider=obj)
+                caps = sorted(adapter.capabilities)
+                return ', '.join(caps)
+            except Exception:
+                return '—'
+        return '—'
+    capabilities_display.short_description = 'Capabilities'
 
     def save_model(self, request, obj, form, change):
         raw_token = form.cleaned_data.get('raw_token')
@@ -189,7 +207,7 @@ class CredentialAdmin(admin.ModelAdmin):
     list_display = ('streaming_username', 'order', 'expires_at', 'is_revoked', 'created_at')
     list_filter = ('is_revoked', 'expires_at')
     search_fields = ('streaming_username', 'external_username')
-    readonly_fields = ('order', 'streaming_username', 'encrypted_password', 'dns_domain', 'm3u_url', 'expires_at', 'created_at')
+    readonly_fields = ('order', 'streaming_username', 'encrypted_password', 'dns_domain', 'm3u_url', 'data', 'expires_at', 'created_at')
     exclude = ('external_username',)
     actions = ['toggle_revoke', 'check_device', 'admin_add_playlist']
 

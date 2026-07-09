@@ -208,6 +208,11 @@ class Credential(models.Model):
         default='',
         help_text='Full M3U playlist URL (separate from base DNS domain).',
     )
+    data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Flexible JSONB store for non-secret credential data (MAC, M3U URL, license key, etc.).',
+    )
     expires_at = models.DateTimeField(
         null=True,
         blank=True,

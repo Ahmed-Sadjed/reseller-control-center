@@ -64,19 +64,35 @@ def fulfill_sync(order: Order, provider=None):
 
     for idx in range(order.quantity):
         try:
-            data = provider.create_line(
+            result = provider.create(
                 pack_id=order.variant.external_pack_id,
                 months=order.variant.duration_months,
                 is_lifetime=order.variant.is_lifetime,
             )
+            # Separate secrets from non-secrets in credentials dict
+            cred_data = result.get('credentials', {})
+            non_secret_data = {}
+            secret_password = ''
+            for key, value in cred_data.items():
+                if key.startswith('secret_'):
+                    # Extract secret — currently only secret_password
+                    secret_password = value
+                else:
+                    non_secret_data[key] = value
+
+            # Build legacy fields for backward compatibility
+            external_username = result.get('external_id', '')
+            streaming_username = cred_data.get('username', cred_data.get('mac', external_username))
+
             cred = Credential.objects.create(
                 order=order,
-                external_username=data['user_id'],
-                streaming_username=data.get('streaming_username', ''),
-                encrypted_password=encrypt_password(data['password']),
-                dns_domain=data.get('dns_domain', ''),
-                m3u_url=data.get('m3u_url', ''),
-                expires_at=data.get('expires_at'),
+                external_username=external_username,
+                streaming_username=streaming_username,
+                encrypted_password=encrypt_password(secret_password),
+                dns_domain=cred_data.get('dns_domain', ''),
+                m3u_url=cred_data.get('m3u_url', ''),
+                data=non_secret_data,
+                expires_at=result.get('expires_at'),
             )
             credentials.append(cred)
         except Exception as e:
@@ -100,11 +116,12 @@ def compensate_order(order: Order, failure_reason: str, successful_credentials=N
                 order=order,
                 username=cred.external_username,
                 encrypted_password=cred.encrypted_password,
-                provider_response={},
+                provider_response=cred.data,  # Reuse data (no secrets) in provider_response
                 reason=f"Order failed: {failure_reason}",
             )
             cred.delete()
-        reseller = order.reseller
+        # CRITICAL: select_for_update() to prevent race conditions during refunds
+        reseller = CustomUser.objects.select_for_update().get(id=order.reseller_id)
         reseller.credit_balance += order.total_credits
         reseller.save()
         CreditTransaction.objects.create(

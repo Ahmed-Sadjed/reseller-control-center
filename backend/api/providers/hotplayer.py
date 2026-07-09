@@ -18,6 +18,10 @@ class HotPlayerAdapter(BaseProviderAdapter):
         self.timeout = provider.extra_config.get('timeout', 30)
 
     @property
+    def capabilities(self) -> set:
+        return {'create', 'renew', 'suspend', 'balance_check'}
+
+    @property
     def api_root(self):
         return self.api_url.replace('/activate', '').rstrip('/')
 
@@ -58,37 +62,37 @@ class HotPlayerAdapter(BaseProviderAdapter):
         suffix = ":".join([f"{uuid.uuid4().hex[:2].upper()}" for _ in range(3)])
         return f"{self.mac_prefix}:{suffix}"
 
-    def create_line(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
+    def create(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
         mac = self.generate_mac()
 
+        # HotPlayer API expects 'subscription' field
         if is_lifetime:
-            duration_val = "FOREVER"
+            subscription = "FOREVER"
         elif months == 12:
-            duration_val = "YEAR_1"
+            subscription = "YEAR_1"
         else:
-            duration_val = f"MONTHS_{months}"
+            subscription = f"MONTHS_{months}"
 
         payload = {
             "mac": mac,
             "pack_id": pack_id,
-            "duration": duration_val
+            "subscription": subscription,
         }
 
-        logger.info("Calling HotPlayer API with mac=%s, duration=%s", mac, duration_val)
+        logger.info("Calling HotPlayer API with mac=%s, subscription=%s", mac, subscription)
         data = self._request('POST', '/activate', json=payload)
 
+        # CRITICAL: Expiry based on months argument, NOT hardcoded
         expires_at = None
         if not is_lifetime:
             expires_at = timezone.now() + timedelta(days=30 * (months or 1))
-            
-        dns_domain = self.provider.extra_config.get("dns_domain", "hotplayer.net")
 
         return {
-            'user_id': mac,
-            'streaming_username': mac,
-            'password': '',
-            'dns_domain': dns_domain,
-            'm3u_url': '',  # MAC devices usually don't use M3U URLs
+            'external_id': mac,
+            'credentials': {
+                'mac': mac,
+                'device_type': 'mag',
+            },
             'expires_at': expires_at,
             'raw_response': data,
         }

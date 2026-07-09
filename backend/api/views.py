@@ -219,7 +219,9 @@ class OrderCredentialsView(APIView):
         order = get_object_or_404(Order, uuid=uuid, reseller=request.user)
         if order.status != Order.Status.COMPLETED:
             return Response({'error': 'Order is not completed.'}, status=status.HTTP_400_BAD_REQUEST)
-        credentials = Credential.objects.filter(order=order)
+        credentials = Credential.objects.filter(order=order).select_related(
+            'order__product__provider', 'order__variant'
+        )
         serializer = CredentialSerializer(credentials, many=True)
         return Response(serializer.data)
 
@@ -315,7 +317,7 @@ class CredentialListView(APIView):
             order__reseller=request.user,
             order__status=Order.Status.COMPLETED,
         ).select_related(
-            'order__product__provider'
+            'order__product__provider', 'order__variant'
         ).order_by('-created_at')
 
         provider = request.query_params.get('provider')
