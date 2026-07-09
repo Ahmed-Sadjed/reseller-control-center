@@ -9,6 +9,7 @@ import ReceiptPage from './pages/ReceiptPage';
 import ProcessingPage from './pages/ProcessingPage';
 import OrdersHistory from './pages/OrdersHistory';
 import DeviceManagerPage from './pages/DeviceManagerPage';
+import DevicesPage from './pages/DevicesPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -99,6 +100,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <OrdersHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/devices"
+            element={
+              <ProtectedRoute>
+                <DevicesPage />
               </ProtectedRoute>
             }
           />

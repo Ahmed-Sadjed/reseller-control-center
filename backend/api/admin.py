@@ -136,7 +136,6 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ('image_tag',)
     fieldsets = (
         (None, {'fields': ('name', 'category', 'provider', 'description')}),
-        ('Pricing & Duration', {'fields': ('duration_months', 'price_in_credits', 'external_pack_id')}),
         ('Media', {'fields': ('image', 'image_tag')}),
         ('Status', {'fields': ('is_active',)}),
     )

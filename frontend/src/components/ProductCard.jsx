@@ -17,8 +17,6 @@ export default function ProductCard({ product, onError }) {
 
   const variants = product.variants || [];
   const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
-  const showVariants = variants.length > 1;
-
   const handleBuy = async () => {
     if (!selectedVariant) return;
     setBuying(true);
@@ -72,23 +70,29 @@ export default function ProductCard({ product, onError }) {
           </span>
           <span className="text-sm text-gray-500">credits</span>
         </div>
-        {showVariants && variants.length > 0 && (
+        {variants.length > 0 && (
           <div className="mt-4">
             <label className="text-sm text-gray-600 block mb-1">Duration:</label>
             <div className="flex gap-2">
-              {variants.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => setSelectedVariant(v)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                    selectedVariant?.id === v.id
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {v.display_name}
-                </button>
-              ))}
+              {variants.length === 1 ? (
+                <span className="px-3 py-1.5 text-sm font-medium rounded bg-gray-100 text-gray-500 cursor-default">
+                  {variants[0].display_name || 'Lifetime'}
+                </span>
+              ) : (
+                variants.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setSelectedVariant(v)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                      selectedVariant?.id === v.id
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {v.display_name || 'Lifetime'}
+                  </button>
+                ))
+              )}
             </div>
           </div>
         )}

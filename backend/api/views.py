@@ -18,7 +18,7 @@ from .models import Product, ProductVariant, Order, Credential, Category
 from .serializers import (
     UserProfileSerializer, CategorySerializer, ProductSerializer,
     PurchaseSerializer, OrderListSerializer, OrderDetailSerializer,
-    CredentialSerializer, OrderStatusSerializer,
+    CredentialSerializer, CredentialListSerializer, OrderStatusSerializer,
     DeviceActivateSerializer, AddPlaylistsSerializer,
 )
 from .services import reserve_phase, fulfill_sync, check_idempotency, InsufficientCredits
@@ -307,6 +307,42 @@ class RQStatsView(APIView):
                 'connected_clients': r.info().get('connected_clients', 0),
             },
         })
+
+
+class CredentialListView(APIView):
+    def get(self, request):
+        credentials = Credential.objects.filter(
+            order__reseller=request.user,
+            order__status=Order.Status.COMPLETED,
+        ).select_related(
+            'order__product__provider'
+        ).order_by('-created_at')
+
+        provider = request.query_params.get('provider')
+        if provider:
+            credentials = credentials.filter(order__product__provider__adapter_key=provider)
+
+        page = self.paginate_queryset(credentials, request)
+        if page is not None:
+            serializer = CredentialListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = CredentialListSerializer(credentials, many=True)
+        return Response(serializer.data)
+
+    @property
+    def paginator(self):
+        if not hasattr(self, '_paginator'):
+            from rest_framework.pagination import PageNumberPagination
+            self._paginator = PageNumberPagination()
+            self._paginator.page_size = 20
+            self._paginator.page_size_query_param = 'page_size'
+        return self._paginator
+
+    def paginate_queryset(self, queryset, request):
+        return self.paginator.paginate_queryset(queryset, request)
+
+    def get_paginated_response(self, data):
+        return self.paginator.get_paginated_response(data)
 
 
 MAC_REGEX = re.compile(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')

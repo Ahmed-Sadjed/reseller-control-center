@@ -36,6 +36,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
                    'price_in_credits', 'is_active']
 
     def get_display_name(self, obj):
+        if obj.is_lifetime:
+            return 'Lifetime'
         return obj.get_duration_months_display()
 
 
@@ -132,6 +134,25 @@ class AddPlaylistsSerializer(serializers.Serializer):
         min_length=1,
         max_length=5,
     )
+
+
+class CredentialListSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='streaming_username')
+    provider_adapter_key = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source='order.product_name_at_purchase')
+    order_uuid = serializers.UUIDField(source='order.uuid')
+    order_created = serializers.DateTimeField(source='order.created_at')
+
+    class Meta:
+        model = Credential
+        fields = ['id', 'username', 'expires_at', 'is_revoked',
+                  'provider_adapter_key', 'product_name', 'order_uuid', 'order_created',
+                  'created_at']
+
+    def get_provider_adapter_key(self, obj):
+        if obj.order.product and obj.order.product.provider:
+            return obj.order.product.provider.adapter_key
+        return None
 
 
 class OrderStatusSerializer(serializers.Serializer):

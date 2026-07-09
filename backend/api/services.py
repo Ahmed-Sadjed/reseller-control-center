@@ -34,7 +34,7 @@ def reserve_phase(reseller: CustomUser, variant, quantity: int, idempotency_key:
             variant=variant,
             quantity=quantity,
             unit_price_at_purchase=variant.price_in_credits,
-            product_name_at_purchase=f"{product.name} - {variant.get_duration_months_display()}",
+            product_name_at_purchase=f"{product.name} - {'Lifetime' if variant.is_lifetime else variant.get_duration_months_display()}",
             total_credits=total,
             status=Order.Status.PENDING,
             idempotency_key=idempotency_key,

@@ -16,6 +16,7 @@ urlpatterns = [
     path('stats/', views.StatsView.as_view(), name='stats'),
     path('health/', views.HealthCheckView.as_view(), name='health'),
     path('rq/', views.RQStatsView.as_view(), name='rq-stats'),
+    path('credentials/', views.CredentialListView.as_view(), name='credential-list'),
     path('credentials/<int:credential_id>/device/status/',
          views.CredentialDeviceStatusView.as_view(), name='credential-device-status'),
     path('credentials/<int:credential_id>/device/activate/',
