@@ -34,6 +34,7 @@ class CustomUser(AbstractUser):
 class Provider(models.Model):
     class AdapterKey(models.TextChoices):
         NEO4K = 'neo4k', 'NEO 4K'
+        GOLD_PANEL = 'goldpanel', 'Gold Panel'
         HOTPLAYER = 'hotplayer', 'HotPlayer'
         MOCK = 'mock', 'Mock'
 
