@@ -113,7 +113,7 @@ class HotPlayerAdapter(BaseProviderAdapter):
 
     def add_playlists(self, mac: str, playlists: list) -> dict:
         logger.info("HotPlayer add_playlists: mac=%s, count=%s", mac, len(playlists))
-        return self._request('POST', f'/add-playlists/{mac}', json={"playlists": playlists})
+        return self._request('POST', f'/add-playlists/{mac}', json=playlists)
 
     def delete_playlists(self, mac: str) -> dict:
         logger.info("HotPlayer delete_playlists: mac=%s", mac)

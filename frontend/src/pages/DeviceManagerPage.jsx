@@ -32,12 +32,15 @@ export default function DeviceManagerPage() {
     const fetchCredential = async () => {
       try {
         const { data } = await api.get(`/orders/`);
-        const allCreds = await Promise.all(
-          data.results
-            ? data.results.map((o) => api.get(`/orders/${o.uuid}/credentials/`).then((r) => r.data))
-            : []
-        );
-        const cred = allCreds.flat().find((c) => String(c.id) === credentialId);
+        const results = data.results
+          ? await Promise.allSettled(
+              data.results.map((o) => api.get(`/orders/${o.uuid}/credentials/`).then((r) => r.data))
+            )
+          : [];
+        const allCreds = results
+          .filter((r) => r.status === 'fulfilled')
+          .flatMap((r) => r.value);
+        const cred = allCreds.find((c) => String(c.id) === credentialId);
         if (cred) {
           setCredential(cred);
         }
