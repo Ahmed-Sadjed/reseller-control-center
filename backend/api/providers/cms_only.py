@@ -23,7 +23,7 @@ class CMSOnlyAdapter(BaseProviderAdapter):
     def capabilities(self) -> set:
         return {'create'}
 
-    def create(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
+    def create(self, pack_id: int, months: int, is_lifetime: bool = False, **kwargs) -> dict:
         params = {
             'action': 'new',
             'type': 'm3u',
@@ -91,8 +91,10 @@ class CMSOnlyAdapter(BaseProviderAdapter):
         return {
             'external_id': username,
             'credentials': {
+                'action': 'create_m3u',
                 'username': streaming_username,
                 'secret_password': password,
+                'dns_domain': self.dns_domain,
                 'm3u_url': m3u_url,
             },
             'expires_at': expires_at,

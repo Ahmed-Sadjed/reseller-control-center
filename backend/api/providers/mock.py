@@ -17,7 +17,7 @@ class MockProviderAdapter(BaseProviderAdapter):
     def capabilities(self) -> set:
         return {'create', 'renew', 'suspend', 'balance_check'}
 
-    def create(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
+    def create(self, pack_id: int, months: int, is_lifetime: bool = False, **kwargs) -> dict:
         if random.random() < self.fail_rate:
             raise Exception(f"Simulated provider failure (pack_id={pack_id}, months={months})")
 

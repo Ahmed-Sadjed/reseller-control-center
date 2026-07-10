@@ -71,14 +71,13 @@ export default function CredentialCard({ credential, index }) {
     }
 
     if (field.type === 'url') {
-      const truncatedUrl = value && value.length > 50 ? value.substring(0, 47) + '...' : value;
       return (
         <div key={field.key} className="flex items-center justify-between">
           <div className="flex-1 min-w-0 mr-2">
             <span className="text-xs text-gray-500">{field.label?.toUpperCase()}</span>
-            <p className="text-sm font-mono text-gray-900 truncate">
+            <p className="text-sm font-mono text-gray-900 break-all">
               <a href={value} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline">
-                {truncatedUrl}
+                {value}
               </a>
             </p>
           </div>
@@ -87,13 +86,11 @@ export default function CredentialCard({ credential, index }) {
       );
     }
 
-    // Default: type === 'text' or anything else
-    const truncatedValue = value && value.length > 50 ? value.substring(0, 47) + '...' : value;
     return (
       <div key={field.key} className="flex items-center justify-between">
         <div className="flex-1 min-w-0 mr-2">
           <span className="text-xs text-gray-500">{field.label?.toUpperCase()}</span>
-          <p className="text-sm font-mono text-gray-900 truncate">{truncatedValue}</p>
+          <p className="text-sm font-mono text-gray-900 break-all">{value}</p>
         </div>
         {copyable && <CopyButton text={String(value)} label="Copy" />}
       </div>
@@ -142,9 +139,9 @@ export default function CredentialCard({ credential, index }) {
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0 mr-2">
             <span className="text-xs text-gray-500">M3U URL</span>
-            <p className="text-sm font-mono text-gray-900 truncate">
+            <p className="text-sm font-mono text-gray-900 break-all">
               <a href={m3uUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline">
-                {m3uUrl.length > 50 ? m3uUrl.substring(0, 47) + '...' : m3uUrl}
+                {m3uUrl}
               </a>
             </p>
           </div>
