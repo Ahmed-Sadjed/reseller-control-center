@@ -23,4 +23,5 @@ urlpatterns = [
          views.CredentialDeviceActivateView.as_view(), name='credential-device-activate'),
     path('credentials/<int:credential_id>/device/playlists/',
          views.CredentialDevicePlaylistsView.as_view(), name='credential-device-playlists'),
+    path('check-device/', views.CheckDeviceView.as_view(), name='check-device'),
 ]

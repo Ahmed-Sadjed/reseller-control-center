@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
 
-const MAC_REGEX = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+const MAC_REGEX = /^([0-9A-Za-f]{2}:){5}[0-9A-Za-f]{2}$/;
 
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -34,6 +34,27 @@ export default function ProductCard({ product, onError }) {
   const [modalDuration, setModalDuration] = useState('year');
   const [modalError, setModalError] = useState('');
   const [activating, setActivating] = useState(false);
+  const [checkResult, setCheckResult] = useState(null);
+  const [checking, setChecking] = useState(false);
+
+  const handleCheckDevice = async () => {
+    const trimmedMac = macInput.trim().toUpperCase();
+    if (!trimmedMac || !MAC_REGEX.test(trimmedMac)) {
+      setCheckResult({ error: 'Enter a valid MAC first.' });
+      return;
+    }
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const { data } = await api.post('/check-device/', { mac: trimmedMac });
+      setCheckResult(data);
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Check failed';
+      setCheckResult({ error: msg });
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleBuy = () => {
     if (!selectedVariant) return;
@@ -43,6 +64,7 @@ export default function ProductCard({ product, onError }) {
       setNoteInput('');
       setModalDuration(initialDuration);
       setModalError('');
+      setCheckResult(null);
       setShowMacModal(true);
       return;
     }
@@ -107,6 +129,7 @@ export default function ProductCard({ product, onError }) {
     setMacInput('');
     setNoteInput('');
     setModalError('');
+    setCheckResult(null);
   };
 
   return (
@@ -194,14 +217,60 @@ export default function ProductCard({ product, onError }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   MAC Address <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={macInput}
-                  onChange={(e) => setMacInput(e.target.value)}
-                  placeholder="00:1A:79:AB:CD:EF"
-                  maxLength={17}
-                  className="w-full px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={macInput}
+                    onChange={(e) => { setMacInput(e.target.value); setCheckResult(null); }}
+                    placeholder="00:1A:79:AB:CD:EF"
+                    maxLength={17}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <button
+                    onClick={handleCheckDevice}
+                    disabled={checking}
+                    className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {checking ? '...' : 'Check'}
+                  </button>
+                </div>
+
+                {checkResult && (
+                  <div className={`mt-2 p-3 rounded text-sm border ${
+                    checkResult.error
+                      ? 'bg-red-50 border-red-200 text-red-700'
+                      : checkResult.found
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                  }`}>
+                    {checkResult.error ? (
+                      checkResult.error
+                    ) : checkResult.found ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                            checkResult.status === 'active' ? 'bg-green-200 text-green-900' :
+                            checkResult.status === 'expiring_soon' ? 'bg-yellow-200 text-yellow-900' :
+                            checkResult.status === 'expired' ? 'bg-red-200 text-red-900' :
+                            'bg-blue-200 text-blue-900'
+                          }`}>
+                            {checkResult.status === 'lifetime' ? 'Lifetime' :
+                             checkResult.status === 'active' ? 'Active' :
+                             checkResult.status === 'expiring_soon' ? 'Expiring Soon' :
+                             checkResult.status === 'expired' ? 'Expired' : checkResult.status}
+                          </span>
+                          <span className="text-green-800">{checkResult.mac}</span>
+                        </div>
+                        <div className="text-green-700">
+                          Plan: {checkResult.plan}
+                          {checkResult.expires_at && <> &middot; Expires: {checkResult.expires_at}</>}
+                        </div>
+                      </div>
+                    ) : (
+                      <span>{checkResult.message || 'MAC not found on HotPlayer.'}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

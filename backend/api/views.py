@@ -26,6 +26,7 @@ from .tasks import fulfill_order_async
 from .device_services import (
     activate_device as device_activate,
     check_device as device_check,
+    check_device_by_mac,
     add_playlists as device_add_playlists,
     delete_playlists as device_delete_playlists,
     InsufficientCredits as DeviceInsufficientCredits,
@@ -349,7 +350,7 @@ class CredentialListView(APIView):
         return self.paginator.get_paginated_response(data)
 
 
-MAC_REGEX = re.compile(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
+MAC_REGEX = re.compile(r'^([0-9A-Za-z]{2}:){5}[0-9A-Za-z]{2}$')
 
 
 class CredentialDeviceStatusView(APIView):
@@ -420,3 +421,15 @@ class CredentialDevicePlaylistsView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CheckDeviceView(APIView):
+    def post(self, request):
+        mac = request.data.get('mac', '').strip()
+        if not mac:
+            return Response({'error': 'MAC address is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not MAC_REGEX.match(mac):
+            return Response({'error': 'Invalid MAC address. Use format XX:XX:XX:XX:XX:XX'}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = check_device_by_mac(mac.upper(), request.user)
+        return Response(data)

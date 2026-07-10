@@ -1,7 +1,8 @@
 from decimal import Decimal
+from datetime import datetime, timezone
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import Credential, ProductVariant, CustomUser, CreditTransaction
+from .models import Credential, ProductVariant, CustomUser, CreditTransaction, Provider
 from .providers import get_adapter_for_provider
 
 
@@ -72,6 +73,73 @@ def check_device(credential_id, user):
     adapter = get_adapter_for_provider(credential.order.product.provider)
     mac = credential.streaming_username or credential.external_username
     return adapter.check_device(mac)
+
+
+def check_device_by_mac(mac, user):
+    provider = Provider.objects.filter(adapter_key='hotplayer', is_active=True).first()
+    if not provider:
+        return {
+            'found': False,
+            'mac': mac,
+            'status': 'error',
+            'message': 'No active HotPlayer provider configured.',
+        }
+
+    adapter = get_adapter_for_provider(provider)
+
+    try:
+        result = adapter.check_device(mac)
+    except Exception as e:
+        return {
+            'found': False,
+            'mac': mac,
+            'status': 'error',
+            'message': str(e),
+        }
+
+    if result.get('status') == 'failed':
+        return {
+            'found': False,
+            'mac': mac,
+            'status': 'not_found',
+            'message': result.get('message', 'MAC not found on HotPlayer.'),
+        }
+
+    plan_raw = result.get('plan', '')
+    plan_mapping = {'YEAR_1': '1 Year', 'FOREVER': 'Lifetime'}
+    plan = plan_mapping.get(plan_raw, plan_raw)
+
+    expiration_ms = result.get('expiration')
+
+    if expiration_ms and plan != 'Lifetime':
+        try:
+            expires_at_dt = datetime.fromtimestamp(int(expiration_ms) / 1000, tz=timezone.utc)
+        except (ValueError, TypeError):
+            expires_at_dt = datetime.fromisoformat(expiration_ms)
+        expires_at = expires_at_dt.strftime('%B %d, %Y')
+        now = datetime.now(timezone.utc)
+        delta = expires_at_dt - now
+        days_remaining = max(0, delta.days)
+
+        if days_remaining == 0 and delta.total_seconds() <= 0:
+            status = 'expired'
+        elif days_remaining <= 7:
+            status = 'expiring_soon'
+        else:
+            status = 'active'
+    else:
+        expires_at = None
+        days_remaining = None
+        status = 'lifetime'
+
+    return {
+        'found': True,
+        'mac': mac,
+        'plan': plan,
+        'expires_at': expires_at,
+        'days_remaining': days_remaining,
+        'status': status,
+    }
 
 
 def add_playlists(credential_id, user, playlists):

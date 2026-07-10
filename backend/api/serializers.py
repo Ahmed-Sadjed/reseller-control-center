@@ -87,7 +87,7 @@ class PurchaseSerializer(serializers.Serializer):
         if not value:
             return value
         import re
-        if not re.match(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$', value):
+        if not re.match(r'^([0-9A-Za-z]{2}:){5}[0-9A-Za-z]{2}$', value):
             raise serializers.ValidationError(
                 "Invalid MAC address. Use format XX:XX:XX:XX:XX:XX"
             )
