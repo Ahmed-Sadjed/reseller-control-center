@@ -28,6 +28,7 @@ from .device_services import (
     check_device as device_check,
     check_device_by_mac,
     add_playlists as device_add_playlists,
+    add_playlists_by_mac,
     delete_playlists as device_delete_playlists,
     InsufficientCredits as DeviceInsufficientCredits,
     NoMatchingVariant,
@@ -432,4 +433,22 @@ class CheckDeviceView(APIView):
             return Response({'error': 'Invalid MAC address. Use format XX:XX:XX:XX:XX:XX'}, status=status.HTTP_400_BAD_REQUEST)
 
         data = check_device_by_mac(mac.upper(), request.user)
+        return Response(data)
+
+
+class DevicePlaylistsByMacView(APIView):
+    def post(self, request):
+        mac = request.data.get('mac', '').strip().upper()
+        if not mac:
+            return Response({'error': 'MAC address is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not MAC_REGEX.match(mac):
+            return Response({'error': 'Invalid MAC address format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = AddPlaylistsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = add_playlists_by_mac(mac, serializer.validated_data['playlists'])
+        if 'error' in data:
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
         return Response(data)

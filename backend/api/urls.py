@@ -24,4 +24,5 @@ urlpatterns = [
     path('credentials/<int:credential_id>/device/playlists/',
          views.CredentialDevicePlaylistsView.as_view(), name='credential-device-playlists'),
     path('check-device/', views.CheckDeviceView.as_view(), name='check-device'),
+    path('device/playlists/', views.DevicePlaylistsByMacView.as_view(), name='device-playlists'),
 ]

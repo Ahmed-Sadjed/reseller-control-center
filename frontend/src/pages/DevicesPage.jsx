@@ -20,6 +20,48 @@ export default function DevicesPage() {
   const [checkResult, setCheckResult] = useState(null);
   const [checking, setChecking] = useState(false);
 
+  const [playlistFields, setPlaylistFields] = useState([{ id: 1, name: '', url: '' }]);
+  const [savingPlaylists, setSavingPlaylists] = useState(false);
+  const [playlistMessage, setPlaylistMessage] = useState(null);
+
+  let nextPlaylistId = 2;
+  const addPlaylistField = () => {
+    setPlaylistFields(prev => [...prev, { id: nextPlaylistId++, name: '', url: '' }]);
+  };
+  const removePlaylistField = (index) => {
+    setPlaylistFields(prev => prev.filter((_, i) => i !== index));
+  };
+  const handlePlaylistChange = (index, field, value) => {
+    setPlaylistFields(prev => prev.map((pf, i) => i === index ? { ...pf, [field]: value } : pf));
+  };
+
+  const handleSavePlaylists = async () => {
+    const valid = playlistFields
+      .filter(pf => pf.url.trim())
+      .map(pf => ({ url: pf.url.trim(), ...(pf.name.trim() ? { name: pf.name.trim() } : {}) }));
+
+    if (valid.length === 0) {
+      setPlaylistMessage({ type: 'error', text: 'Enter at least one playlist URL.' });
+      return;
+    }
+
+    setSavingPlaylists(true);
+    setPlaylistMessage(null);
+    try {
+      const { data } = await api.post('/device/playlists/', {
+        mac: checkMac.trim().toUpperCase(),
+        playlists: valid,
+      });
+      setPlaylistMessage({ type: 'success', text: 'Playlists saved successfully!' });
+      setPlaylistFields([{ id: nextPlaylistId++, name: '', url: '' }]);
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Failed to save playlists';
+      setPlaylistMessage({ type: 'error', text: msg });
+    } finally {
+      setSavingPlaylists(false);
+    }
+  };
+
   useEffect(() => {
     const fetchCredentials = async () => {
       setLoading(true);
@@ -123,6 +165,56 @@ export default function DevicesPage() {
                 </div>
               ) : (
                 <span>{checkResult.message || 'MAC not found on HotPlayer.'}</span>
+              )}
+            </div>
+          )}
+
+          {checkResult?.found && (
+            <div className="mt-4 border-t pt-4 max-w-lg">
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">Add Playlists</h3>
+              <p className="text-xs text-gray-500 mb-3">Add M3U URLs or XtreamCode format (HOST|USERNAME|PASSWORD)</p>
+
+              {playlistFields.map((pf, i) => (
+                <div key={pf.id} className="flex gap-2 mb-2 items-start">
+                  <input
+                    type="text"
+                    placeholder="Name (optional)"
+                    value={pf.name}
+                    onChange={(e) => handlePlaylistChange(i, 'name', e.target.value)}
+                    className="flex-1 px-3 py-1.5 border rounded text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="M3U URL or HOST|USER|PASS"
+                    value={pf.url}
+                    onChange={(e) => handlePlaylistChange(i, 'url', e.target.value)}
+                    className="flex-[3] px-3 py-1.5 border rounded text-sm font-mono"
+                  />
+                  {playlistFields.length > 1 && (
+                    <button onClick={() => removePlaylistField(i)} className="px-2 py-1.5 text-red-500 hover:text-red-700 text-lg">&times;</button>
+                  )}
+                </div>
+              ))}
+
+              <div className="flex gap-2 items-center mt-2">
+                {playlistFields.length < 5 && (
+                  <button onClick={addPlaylistField} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                    + Add another
+                  </button>
+                )}
+                <button
+                  onClick={handleSavePlaylists}
+                  disabled={savingPlaylists}
+                  className="ml-auto px-4 py-1.5 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {savingPlaylists ? 'Saving...' : 'Save Playlists'}
+                </button>
+              </div>
+
+              {playlistMessage && (
+                <p className={`mt-2 text-sm ${playlistMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                  {playlistMessage.text}
+                </p>
               )}
             </div>
           )}

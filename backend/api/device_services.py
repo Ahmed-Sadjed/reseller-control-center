@@ -162,3 +162,11 @@ def delete_playlists(credential_id, user):
     adapter = get_adapter_for_provider(credential.order.product.provider)
     mac = credential.streaming_username or credential.external_username
     return adapter.delete_playlists(mac)
+
+
+def add_playlists_by_mac(mac, playlists):
+    provider = Provider.objects.filter(adapter_key='hotplayer', is_active=True).first()
+    if not provider:
+        return {'error': 'No active HotPlayer provider configured.'}
+    adapter = get_adapter_for_provider(provider)
+    return adapter.add_playlists(mac, playlists)
