@@ -43,7 +43,7 @@ class HotPlayerAdapter(BaseProviderAdapter):
             raise ProviderTimeoutError(f"Connection error: {e}")
         except requests.HTTPError as e:
             logger.error("HotPlayer HTTP %s: %s", response.status_code, response.text[:300])
-            raise ProviderAPIError(f"Provider returned HTTP {response.status_code}: {e}")
+            raise ProviderAPIError(f"Provider returned HTTP {response.status_code}: {response.text[:500]}")
         except ValueError as e:
             logger.error("HotPlayer invalid JSON: %s", response.text[:300])
             raise ProviderInvalidResponseError(f"Invalid JSON response: {e}")
