@@ -1,5 +1,4 @@
 import logging
-import uuid
 import requests
 from django.utils import timezone
 from datetime import timedelta
@@ -14,7 +13,6 @@ class HotPlayerAdapter(BaseProviderAdapter):
         super().__init__(provider)
         self.api_url = provider.api_endpoint
         self.api_key = provider.get_token()
-        self.mac_prefix = provider.extra_config.get('mac_prefix', '00:1A:79')
         self.timeout = provider.extra_config.get('timeout', 30)
 
     @property
@@ -57,15 +55,10 @@ class HotPlayerAdapter(BaseProviderAdapter):
 
         return data
 
-    def generate_mac(self):
-        # Generate random MAC matching the prefix
-        suffix = ":".join([f"{uuid.uuid4().hex[:2].upper()}" for _ in range(3)])
-        return f"{self.mac_prefix}:{suffix}"
+    def create(self, pack_id: int, months: int, is_lifetime: bool = False, mac='', note='') -> dict:
+        if not mac:
+            raise ProviderAPIError("MAC address is required for HotPlayer activation.")
 
-    def create(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
-        mac = self.generate_mac()
-
-        # HotPlayer API expects 'subscription' field
         if is_lifetime:
             subscription = "FOREVER"
         elif months == 12:
@@ -78,11 +71,12 @@ class HotPlayerAdapter(BaseProviderAdapter):
             "pack_id": pack_id,
             "subscription": subscription,
         }
+        if note:
+            payload["note"] = note
 
         logger.info("Calling HotPlayer API with mac=%s, subscription=%s", mac, subscription)
         data = self._request('POST', '/activate', json=payload)
 
-        # CRITICAL: Expiry based on months argument, NOT hardcoded
         expires_at = None
         if not is_lifetime:
             expires_at = timezone.now() + timedelta(days=30 * (months or 1))

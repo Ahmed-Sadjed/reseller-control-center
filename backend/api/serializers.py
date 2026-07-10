@@ -46,12 +46,13 @@ class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_slug = serializers.CharField(source='category.slug', read_only=True)
     provider_name = serializers.CharField(source='provider.name', read_only=True)
+    provider_key = serializers.CharField(source='provider.adapter_key', read_only=True)
     thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'category', 'category_name', 'category_slug',
-                  'provider', 'provider_name', 'description', 'image',
+                  'provider', 'provider_name', 'provider_key', 'description', 'image',
                   'thumbnail_url', 'is_active', 'variants', 'created_at']
 
     def get_variants(self, obj):
@@ -70,6 +71,8 @@ class ProductSerializer(serializers.ModelSerializer):
 class PurchaseSerializer(serializers.Serializer):
     variant_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1, max_value=50)
+    mac = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_variant_id(self, value):
         try:
@@ -79,6 +82,29 @@ class PurchaseSerializer(serializers.Serializer):
         except ProductVariant.DoesNotExist:
             raise serializers.ValidationError("Variant not found or inactive.")
         return variant
+
+    def validate_mac(self, value):
+        if not value:
+            return value
+        import re
+        if not re.match(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$', value):
+            raise serializers.ValidationError(
+                "Invalid MAC address. Use format XX:XX:XX:XX:XX:XX"
+            )
+        return value.upper()
+
+    def validate(self, data):
+        variant = data.get('variant_id')
+        if variant and variant.product.provider.adapter_key == 'hotplayer':
+            if data.get('quantity', 1) != 1:
+                raise serializers.ValidationError(
+                    {"quantity": "HotPlayer products support only quantity 1 per purchase."}
+                )
+            if not data.get('mac'):
+                raise serializers.ValidationError(
+                    {"mac": "MAC address is required for HotPlayer products."}
+                )
+        return data
 
 
 class OrderListSerializer(serializers.ModelSerializer):

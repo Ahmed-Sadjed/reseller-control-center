@@ -157,6 +157,8 @@ class PurchaseView(APIView):
 
         variant = serializer.validated_data['variant_id']
         quantity = serializer.validated_data['quantity']
+        mac = serializer.validated_data.get('mac', '') or ''
+        note = serializer.validated_data.get('note', '') or ''
 
         try:
             order = reserve_phase(request.user, variant, quantity, idempotency_key)
@@ -164,7 +166,7 @@ class PurchaseView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         if quantity <= settings.ASYNC_THRESHOLD:
-            credentials, failure = fulfill_sync(order)
+            credentials, failure = fulfill_sync(order, mac=mac, note=note)
             if failure:
                 return Response({'error': failure}, status=status.HTTP_400_BAD_REQUEST)
             cred_serializer = CredentialSerializer(credentials, many=True)

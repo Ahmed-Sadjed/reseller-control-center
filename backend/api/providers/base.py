@@ -27,9 +27,12 @@ class BaseProviderAdapter(ABC):
         return {'create'}
 
     @abstractmethod
-    def create(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
+    def create(self, pack_id: int, months: int, is_lifetime: bool = False, **kwargs) -> dict:
         """
         New Standard Format contract.
+
+        Accepts additional kwargs for provider-specific params
+        (e.g. mac, note for HotPlayer).
 
         Returns:
             {
@@ -46,7 +49,7 @@ class BaseProviderAdapter(ABC):
         """
         pass
 
-    def create_line(self, pack_id: int, months: int, is_lifetime: bool = False) -> dict:
+    def create_line(self, pack_id: int, months: int, is_lifetime: bool = False, **kwargs) -> dict:
         """
         Legacy alias — translates new Standard Format back to old format
         so tasks.py and any legacy callers do not break.
@@ -62,7 +65,7 @@ class BaseProviderAdapter(ABC):
                 'raw_response': dict,
             }
         """
-        result = self.create(pack_id=pack_id, months=months, is_lifetime=is_lifetime)
+        result = self.create(pack_id=pack_id, months=months, is_lifetime=is_lifetime, **kwargs)
         creds = result.get('credentials', {})
         return {
             'user_id': result.get('external_id', ''),
