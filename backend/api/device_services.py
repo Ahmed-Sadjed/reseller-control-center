@@ -90,19 +90,27 @@ def check_device_by_mac(mac, user):
     try:
         result = adapter.check_device(mac)
     except Exception as e:
+        err_msg = str(e)
+        if 'MAC not found' in err_msg:
+            err_msg = f'{mac}\nMAC not found. Maybe HotIPTV application is not yet installed on this device!'
+        else:
+            err_msg = f'{mac}\n{err_msg}'
         return {
             'found': False,
             'mac': mac,
             'status': 'error',
-            'message': str(e),
+            'message': err_msg,
         }
 
     if result.get('status') == 'failed':
+        api_msg = result.get('message', 'MAC not found')
+        if 'MAC not found' in api_msg:
+            api_msg = 'MAC not found. Maybe HotIPTV application is not yet installed on this device!'
         return {
             'found': False,
             'mac': mac,
             'status': 'not_found',
-            'message': result.get('message', 'MAC not found on HotPlayer.'),
+            'message': f'{mac}\n{api_msg}',
         }
 
     plan_raw = result.get('plan', '')
