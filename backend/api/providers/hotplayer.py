@@ -25,7 +25,7 @@ class HotPlayerAdapter(BaseProviderAdapter):
 
     def _request(self, method, path, **kwargs):
         headers = kwargs.pop('headers', {})
-        headers.setdefault("ApiKey", self.api_key)
+        headers.setdefault("Authorization", f"ApiKey {self.api_key}")
         if method in ('POST', 'PUT', 'PATCH'):
             headers.setdefault("Content-Type", "application/json")
 

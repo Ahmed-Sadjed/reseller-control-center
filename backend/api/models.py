@@ -158,7 +158,7 @@ class ProductVariant(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['product', 'external_pack_id']
+        unique_together = ['product', 'external_pack_id', 'duration_months']
 
     def __str__(self):
         if self.is_lifetime:
