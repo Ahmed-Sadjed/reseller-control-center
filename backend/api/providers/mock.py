@@ -98,3 +98,6 @@ class MockProviderAdapter(BaseProviderAdapter):
             'message': 'All playlists deleted',
             'mock': True,
         }
+
+    def get_templates(self) -> list:
+        return []

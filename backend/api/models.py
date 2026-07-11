@@ -92,6 +92,10 @@ class Category(models.Model):
 
 class Product(models.Model):
     class Duration(models.IntegerChoices):
+        TRIAL_6H = 100, '6 Hours'
+        TRIAL_12H = 101, '12 Hours'
+        TRIAL_24H = 102, '24 Hours'
+        TRIAL_72H = 103, '72 Hours'
         ONE_MONTH = 1, '1 Month'
         THREE_MONTHS = 3, '3 Months'
         SIX_MONTHS = 6, '6 Months'

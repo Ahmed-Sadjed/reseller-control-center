@@ -75,6 +75,8 @@ class PurchaseSerializer(serializers.Serializer):
     note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     username = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    template_id = serializers.IntegerField(required=False, allow_null=True)
+    dns_domain_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_variant_id(self, value):
         try:
@@ -154,15 +156,9 @@ class CredentialSerializer(serializers.ModelSerializer):
         decrypted = decrypt_password(obj.encrypted_password)
         if decrypted:
             data['secret_password'] = decrypted
-        data['created_at'] = obj.created_at.isoformat() if obj.created_at else ''
-        data['package'] = obj.order.product_name_at_purchase if obj.order else ''
         return data
 
     def get_provider_config(self, obj):
-        """
-        Read display schema from the Provider's extra_config.
-        Access via obj.order.product.provider (not variant).
-        """
         try:
             provider = obj.order.product.provider
             if provider and provider.extra_config:
@@ -224,12 +220,9 @@ class CredentialListSerializer(serializers.ModelSerializer):
         decrypted = decrypt_password(obj.encrypted_password)
         if decrypted:
             data['secret_password'] = decrypted
-        data['created_at'] = obj.created_at.isoformat() if obj.created_at else ''
-        data['package'] = obj.order.product_name_at_purchase if obj.order else ''
         return data
 
     def get_provider_config(self, obj):
-        """Read display schema from Provider's extra_config."""
         try:
             provider = obj.order.product.provider
             if provider and provider.extra_config:

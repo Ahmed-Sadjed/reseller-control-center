@@ -315,6 +315,36 @@ class TestCMSOnlyAdapter(TestCase, StandardFormatMixin):
 class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     """Test GoldenAPIAdapter with mocked HTTP — no real API calls."""
 
+    def _mock_create_response(self, overrides=None):
+        """Build a mock response matching the real Golden API nested format."""
+        base = {
+            'success': True,
+            'data': [{
+                'id': 42,
+                'username': 'golden_u1',
+                'password': 'pass123',
+                'exp_date': '2027-07-11',
+                'created_at': '2025-01-01 00:00:00',
+                'is_trial': False,
+                'max_connections': 1,
+                'package_id': 5,
+                'dns_link_for_samsung_lg': 'http://tv.example.com',
+            }],
+            'package': {'id': 5, 'name': 'Test Package', 'is_trial': False, 'credits_used': 10},
+            'template': {'id': 3, 'name': 'My Template'},
+            'qr': {'token': 'abc-123', 'url': 'https://example.com/qr/abc-123', 'expires_at': '2025-05-16T12:00:00Z'},
+        }
+        if overrides:
+            self._deep_merge(base, overrides)
+        return base
+
+    def _deep_merge(self, base, overrides):
+        for key, val in overrides.items():
+            if isinstance(val, dict) and key in base and isinstance(base[key], dict):
+                self._deep_merge(base[key], val)
+            else:
+                base[key] = val
+
     def setUp(self):
         self.provider = MockProviderModel(
             adapter_key='golden_api',
@@ -336,12 +366,7 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     def test_create_returns_standard_format(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 42,
-            'username': 'golden_testuser',
-            'exp_date': '2027-07-11',
-            'status': 'active',
-        }
+        mock_response.json.return_value = self._mock_create_response()
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 
@@ -352,12 +377,7 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     def test_create_credentials_contain_username_password_line_id(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 42,
-            'username': 'golden_u1',
-            'exp_date': '2027-07-11',
-            'status': 'active',
-        }
+        mock_response.json.return_value = self._mock_create_response()
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 
@@ -372,11 +392,9 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     def test_create_uses_provided_username(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 1,
-            'username': 'mycustomuser',
-            'exp_date': '2027-07-11',
-        }
+        mock_response.json.return_value = self._mock_create_response({
+            'data': [{'username': 'mycustomuser'}]
+        })
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 
@@ -387,31 +405,24 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     def test_create_auto_generates_username_when_blank(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 1,
-            'username': 'golden_auto',
-            'exp_date': '2027-07-11',
-        }
+        mock_response.json.return_value = self._mock_create_response()
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 
         result = self.adapter.create(pack_id=5, months=12)
-        self.assertTrue(result['external_id'].startswith('golden_'))
+        self.assertTrue(result['external_id'].startswith('g'))
+        self.assertEqual(len(result['external_id']), 8)
 
     @patch('api.providers.golden_api.requests.request')
     def test_create_auto_generates_password_when_blank(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 1,
-            'username': 'golden_u1',
-            'exp_date': '2027-07-11',
-        }
+        mock_response.json.return_value = self._mock_create_response()
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 
         result = self.adapter.create(pack_id=5, months=12)
-        self.assertEqual(len(result['credentials']['secret_password']), 8)
+        self.assertEqual(len(result['credentials']['secret_password']), 7)
 
     @patch('api.providers.golden_api.requests.request')
     def test_create_retries_on_422_username_taken(self, mock_request):
@@ -422,11 +433,7 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
 
         success_response = MagicMock()
         success_response.status_code = 200
-        success_response.json.return_value = {
-            'id': 2,
-            'username': 'golden_u1_abcd',
-            'exp_date': '2027-07-11',
-        }
+        success_response.json.return_value = self._mock_create_response()
         success_response.raise_for_status = MagicMock()
 
         mock_request.side_effect = [fail_response, success_response]
@@ -450,10 +457,9 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     def test_create_lifetime_no_expiry(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 1,
-            'username': 'golden_u1',
-        }
+        mock_response.json.return_value = self._mock_create_response({
+            'data': [{'id': 1, 'username': 'golden_u1'}]
+        })
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 
@@ -464,11 +470,7 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
     def test_create_sends_correct_payload(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'id': 1,
-            'username': 'golden_u1',
-            'exp_date': '2027-07-11',
-        }
+        mock_response.json.return_value = self._mock_create_response()
         mock_response.raise_for_status = MagicMock()
         mock_request.return_value = mock_response
 

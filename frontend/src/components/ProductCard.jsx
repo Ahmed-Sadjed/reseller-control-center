@@ -43,6 +43,10 @@ export default function ProductCard({ product, onError }) {
   const [activating, setActivating] = useState(false);
   const [checkResult, setCheckResult] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [domains, setDomains] = useState([]);
+  const [selectedDomainId, setSelectedDomainId] = useState('');
 
   const handleCheckDevice = async () => {
     const trimmedMac = macInput.trim().toUpperCase();
@@ -77,12 +81,22 @@ export default function ProductCard({ product, onError }) {
       setModalError('');
       setCheckResult(null);
       setShowPurchaseModal(true);
+      if (isGoldenApi) {
+        setSelectedTemplateId('');
+        setSelectedDomainId('');
+        api.get('/golden-templates/', { params: { provider_id: product.provider } })
+          .then(res => setTemplates(res.data.templates || []))
+          .catch(() => setTemplates([]));
+        api.get('/golden-domains/', { params: { provider_id: product.provider } })
+          .then(res => setDomains(res.data.domains || []))
+          .catch(() => setDomains([]));
+      }
       return;
     }
     submitPurchase(selectedVariant.id, quantity);
   };
 
-  const submitPurchase = async (variantId, qty, mac, note, username, password) => {
+  const submitPurchase = async (variantId, qty, mac, note, username, password, templateId, domainId) => {
     setBuying(true);
     const idempotencyKey = generateUUID();
     try {
@@ -91,6 +105,8 @@ export default function ProductCard({ product, onError }) {
       if (note) body.note = note;
       if (username) body.username = username;
       if (password) body.password = password;
+      if (templateId) body.template_id = templateId;
+      if (domainId) body.dns_domain_id = parseInt(domainId);
       const { data } = await api.post('/purchase/', body, {
         headers: { 'Idempotency-Key': idempotencyKey },
       });
@@ -141,7 +157,7 @@ export default function ProductCard({ product, onError }) {
       }
     } else if (isGoldenApi) {
       try {
-        await submitPurchase(variant.id, quantity, null, noteInput.trim(), usernameInput.trim(), passwordInput.trim());
+        await submitPurchase(variant.id, quantity, null, noteInput.trim(), usernameInput.trim(), passwordInput.trim(), selectedTemplateId, selectedDomainId);
         setShowPurchaseModal(false);
       } catch (err) {
         setModalError(err.response?.data?.error || err.message || 'Purchase failed');
@@ -327,6 +343,40 @@ export default function ProductCard({ product, onError }) {
                       ))}
                     </select>
                   </div>
+                  {templates.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Bouquet Template <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                      >
+                        <option value="">No template</option>
+                        {templates.map((t, i) => (
+                          <option key={i} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {domains.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        DNS Domain <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={selectedDomainId}
+                        onChange={(e) => setSelectedDomainId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                      >
+                        <option value="">Select a domain</option>
+                        {domains.map((d) => (
+                          <option key={d.id} value={d.id}>{d.domain}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Username <span className="text-gray-400 font-normal">(optional, auto-generated)</span>

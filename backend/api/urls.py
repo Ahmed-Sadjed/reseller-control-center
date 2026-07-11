@@ -27,4 +27,6 @@ urlpatterns = [
          views.CredentialDevicePlaylistsView.as_view(), name='credential-device-playlists'),
     path('check-device/', views.CheckDeviceView.as_view(), name='check-device'),
     path('device/playlists/', views.DevicePlaylistsByMacView.as_view(), name='device-playlists'),
+    path('golden-templates/', views.GoldenTemplatesView.as_view(), name='golden-templates'),
+    path('golden-domains/', views.GoldenDomainsView.as_view(), name='golden-domains'),
 ]

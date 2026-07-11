@@ -14,7 +14,8 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import Product, ProductVariant, Order, Credential, Category
+from .models import Product, ProductVariant, Order, Credential, Category, Provider
+from .providers import get_adapter_for_provider
 from .serializers import (
     UserProfileSerializer, CategorySerializer, ProductSerializer,
     PurchaseSerializer, OrderListSerializer, OrderDetailSerializer,
@@ -164,6 +165,8 @@ class PurchaseView(APIView):
         note = serializer.validated_data.get('note', '') or ''
         username = serializer.validated_data.get('username', '') or ''
         password = serializer.validated_data.get('password', '') or ''
+        template_id = serializer.validated_data.get('template_id')
+        dns_domain_id = serializer.validated_data.get('dns_domain_id')
 
         try:
             order = reserve_phase(request.user, variant, quantity, idempotency_key)
@@ -172,7 +175,8 @@ class PurchaseView(APIView):
 
         if quantity <= settings.ASYNC_THRESHOLD:
             credentials, failure = fulfill_sync(
-                order, mac=mac, note=note, username=username, password=password
+                order, mac=mac, note=note, username=username, password=password,
+                template_id=template_id, dns_domain_id=dns_domain_id,
             )
             if failure:
                 return Response({'error': failure}, status=status.HTTP_400_BAD_REQUEST)
@@ -184,7 +188,8 @@ class PurchaseView(APIView):
             }, status=status.HTTP_201_CREATED)
         else:
             fulfill_order_async.delay(
-                order.id, mac=mac, note=note, username=username, password=password
+                order.id, mac=mac, note=note, username=username, password=password,
+                template_id=template_id, dns_domain_id=dns_domain_id,
             )
             return Response({
                 'order_id': order.uuid,
@@ -470,3 +475,43 @@ class DevicePlaylistsByMacView(APIView):
         if 'error' in data:
             return Response(data, status=status.HTTP_400_BAD_REQUEST)
         return Response(data)
+
+
+class GoldenTemplatesView(APIView):
+    def get(self, request):
+        provider_id = request.query_params.get('provider_id')
+        if not provider_id:
+            return Response({'error': 'provider_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = get_object_or_404(Provider, id=provider_id)
+        if provider.adapter_key != 'golden_api':
+            return Response({'error': 'Templates are only available for Golden API providers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            adapter = get_adapter_for_provider(provider)
+            templates = adapter.get_templates()
+            return Response({'templates': templates})
+        except AttributeError:
+            return Response({'error': 'Adapter does not support templates.'}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GoldenDomainsView(APIView):
+    def get(self, request):
+        provider_id = request.query_params.get('provider_id')
+        if not provider_id:
+            return Response({'error': 'provider_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = get_object_or_404(Provider, id=provider_id)
+        if provider.adapter_key != 'golden_api':
+            return Response({'error': 'Domains are only available for Golden API providers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            adapter = get_adapter_for_provider(provider)
+            domains = adapter.get_domains()
+            return Response({'domains': domains})
+        except AttributeError:
+            return Response({'error': 'Adapter does not support domains.'}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
