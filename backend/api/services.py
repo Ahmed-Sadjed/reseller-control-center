@@ -55,7 +55,7 @@ def reserve_phase(reseller: CustomUser, variant, quantity: int, idempotency_key:
         return order
 
 
-def fulfill_sync(order: Order, provider=None, mac='', note=''):
+def fulfill_sync(order: Order, provider=None, mac='', note='', username='', password=''):
     if provider is None:
         provider = get_adapter_for_provider(order.product.provider)
     credentials = []
@@ -70,6 +70,8 @@ def fulfill_sync(order: Order, provider=None, mac='', note=''):
                 is_lifetime=order.variant.is_lifetime,
                 mac=mac,
                 note=note,
+                username=username,
+                password=password,
             )
             # Separate secrets from non-secrets in credentials dict
             cred_data = result.get('credentials', {})

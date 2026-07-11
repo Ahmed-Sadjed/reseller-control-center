@@ -9,6 +9,7 @@ import ReceiptPage from './pages/ReceiptPage';
 import ProcessingPage from './pages/ProcessingPage';
 import OrdersHistory from './pages/OrdersHistory';
 import DeviceManagerPage from './pages/DeviceManagerPage';
+import LineManagerPage from './pages/LineManagerPage';
 import DevicesPage from './pages/DevicesPage';
 
 function ProtectedRoute({ children }) {
@@ -116,6 +117,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DeviceManagerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/credentials/:credentialId/line-manager"
+            element={
+              <ProtectedRoute>
+                <LineManagerPage />
               </ProtectedRoute>
             }
           />

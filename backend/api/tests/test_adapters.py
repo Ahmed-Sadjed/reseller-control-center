@@ -17,6 +17,7 @@ from api.providers.base import BaseProviderAdapter
 from api.providers.mock import MockProviderAdapter
 from api.providers.hotplayer import HotPlayerAdapter
 from api.providers.cms_only import CMSOnlyAdapter
+from api.providers.golden_api import GoldenAPIAdapter
 from api.utils import encrypt_password
 
 
@@ -309,3 +310,241 @@ class TestCMSOnlyAdapter(TestCase, StandardFormatMixin):
         self.assertEqual(creds['secret_password'], 'secret123')
         self.assertIn('m3u_url', creds)
         self.assertEqual(result['external_id'], 'u1')
+
+
+class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
+    """Test GoldenAPIAdapter with mocked HTTP — no real API calls."""
+
+    def setUp(self):
+        self.provider = MockProviderModel(
+            adapter_key='golden_api',
+            api_endpoint='http://golden-api.test',
+            extra_config={
+                'timeout': 15,
+            }
+        )
+        self.adapter = GoldenAPIAdapter(provider=self.provider)
+
+    def test_capabilities(self):
+        caps = self.adapter.capabilities
+        self.assertIn('create', caps)
+        self.assertIn('renew', caps)
+        self.assertIn('check', caps)
+        self.assertIn('refund', caps)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_returns_standard_format(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 42,
+            'username': 'golden_testuser',
+            'exp_date': '2027-07-11',
+            'status': 'active',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        result = self.adapter.create(pack_id=5, months=12)
+        self.assert_standard_format(result)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_credentials_contain_username_password_line_id(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 42,
+            'username': 'golden_u1',
+            'exp_date': '2027-07-11',
+            'status': 'active',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        result = self.adapter.create(pack_id=5, months=12)
+        creds = result['credentials']
+        self.assertIn('username', creds)
+        self.assertIn('secret_password', creds)
+        self.assertIn('line_id', creds)
+        self.assertEqual(creds['line_id'], 42)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_uses_provided_username(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 1,
+            'username': 'mycustomuser',
+            'exp_date': '2027-07-11',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        result = self.adapter.create(pack_id=5, months=12, username='mycustomuser')
+        self.assertEqual(result['credentials']['username'], 'mycustomuser')
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_auto_generates_username_when_blank(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 1,
+            'username': 'golden_auto',
+            'exp_date': '2027-07-11',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        result = self.adapter.create(pack_id=5, months=12)
+        self.assertTrue(result['external_id'].startswith('golden_'))
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_auto_generates_password_when_blank(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 1,
+            'username': 'golden_u1',
+            'exp_date': '2027-07-11',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        result = self.adapter.create(pack_id=5, months=12)
+        self.assertEqual(len(result['credentials']['secret_password']), 8)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_retries_on_422_username_taken(self, mock_request):
+        fail_response = MagicMock()
+        fail_response.status_code = 422
+        fail_response.json.return_value = {'message': 'Username already taken'}
+        fail_response.raise_for_status.side_effect = Exception('HTTP 422')
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {
+            'id': 2,
+            'username': 'golden_u1_abcd',
+            'exp_date': '2027-07-11',
+        }
+        success_response.raise_for_status = MagicMock()
+
+        mock_request.side_effect = [fail_response, success_response]
+
+        result = self.adapter.create(pack_id=5, months=12)
+        self.assert_standard_format(result)
+        self.assertEqual(mock_request.call_count, 2)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_exhausts_retries_and_raises(self, mock_request):
+        fail_response = MagicMock()
+        fail_response.status_code = 422
+        fail_response.json.return_value = {'message': 'Username already taken'}
+        fail_response.raise_for_status.side_effect = Exception('HTTP 422')
+        mock_request.return_value = fail_response
+
+        with self.assertRaises(Exception):
+            self.adapter.create(pack_id=5, months=12)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_lifetime_no_expiry(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 1,
+            'username': 'golden_u1',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        result = self.adapter.create(pack_id=5, months=12, is_lifetime=True)
+        self.assertIsNone(result['expires_at'])
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_create_sends_correct_payload(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'id': 1,
+            'username': 'golden_u1',
+            'exp_date': '2027-07-11',
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        self.adapter.create(pack_id=5, months=12, username='testuser', password='testpass')
+        call_kwargs = mock_request.call_args.kwargs
+        payload = call_kwargs.get('json', {})
+        self.assertEqual(payload['package_id'], 5)
+        self.assertEqual(payload['username'], 'testuser')
+        self.assertEqual(payload['password'], 'testpass')
+
+    def test_check_device_without_credential_raises(self):
+        credential = MagicMock()
+        credential.data = {}
+        with self.assertRaises(Exception):
+            self.adapter.check_device(mac='00:1A:79:AB:CD:EF', credential=credential)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_check_device_with_line_id(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'id': 42, 'status': 'active', 'exp_date': '2027-07-11'}
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        credential = MagicMock()
+        credential.data = {'line_id': 42}
+        result = self.adapter.check_device(mac='00:1A:79:AB:CD:EF', credential=credential)
+        self.assertEqual(result['id'], 42)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_extend_device(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'id': 42, 'status': 'active', 'exp_date': '2028-07-11'}
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        credential = MagicMock()
+        credential.data = {'line_id': 42}
+        result = self.adapter.activate_device(
+            mac='00:1A:79:AB:CD:EF', pack_id=5, duration='12_months',
+            extend=True, credential=credential
+        )
+        self.assertEqual(result['id'], 42)
+
+    def test_extend_without_extend_flag_raises(self):
+        credential = MagicMock()
+        credential.data = {'line_id': 42}
+        with self.assertRaises(Exception):
+            self.adapter.activate_device(
+                mac='00:1A:79:AB:CD:EF', pack_id=5, duration='12_months',
+                extend=False, credential=credential
+            )
+
+    def test_extend_without_credential_raises(self):
+        with self.assertRaises(Exception):
+            self.adapter.activate_device(
+                mac='00:1A:79:AB:CD:EF', pack_id=5, duration='12_months',
+                extend=True, credential=None
+            )
+
+    def test_refund_without_line_id_raises(self):
+        credential = MagicMock()
+        credential.data = {}
+        with self.assertRaises(Exception):
+            self.adapter.refund(credential=credential)
+
+    @patch('api.providers.golden_api.requests.request')
+    def test_refund_success(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'id': 42, 'status': 'refunded'}
+        mock_response.raise_for_status = MagicMock()
+        mock_request.return_value = mock_response
+
+        credential = MagicMock()
+        credential.data = {'line_id': 42}
+        result = self.adapter.refund(credential=credential)
+        self.assertEqual(result['status'], 'refunded')

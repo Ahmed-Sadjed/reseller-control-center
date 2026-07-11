@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='provider',
             name='adapter_key',
-            field=models.CharField(choices=[('neo4k', 'NEO 4K'), ('goldpanel', 'Gold Panel'), ('hotplayer', 'HotPlayer'), ('mock', 'Mock')], default='mock', help_text='Determines which adapter class handles API calls for this provider.', max_length=20),
+            field=models.CharField(choices=[('neo4k', 'NEO 4K'), ('goldpanel', 'Gold Panel'), ('hotplayer', 'HotPlayer'), ('golden_api', 'Golden API'), ('mock', 'Mock')], default='mock', help_text='Determines which adapter class handles API calls for this provider.', max_length=20),
         ),
         migrations.AlterUniqueTogether(
             name='productvariant',

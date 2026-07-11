@@ -2,6 +2,7 @@ import os
 from .cms_only import CMSOnlyAdapter
 from .gold_panel import GoldPanelAdapter
 from .hotplayer import HotPlayerAdapter
+from .golden_api import GoldenAPIAdapter
 from .mock import MockProviderAdapter
 
 
@@ -9,6 +10,7 @@ ADAPTER_REGISTRY = {
     'neo4k': CMSOnlyAdapter,
     'goldpanel': GoldPanelAdapter,
     'hotplayer': HotPlayerAdapter,
+    'golden_api': GoldenAPIAdapter,
     'mock': MockProviderAdapter,
 }
 

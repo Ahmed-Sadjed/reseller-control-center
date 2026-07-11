@@ -50,7 +50,7 @@ def activate_device(credential_id, user, pack_id, duration, extend=False, quanti
         )
 
     try:
-        result = adapter.activate_device(mac, pack_id, duration, extend)
+        result = adapter.activate_device(mac, pack_id, duration, extend, credential=credential)
     except Exception:
         with transaction.atomic():
             reseller = CustomUser.objects.select_for_update().get(id=user.id)
@@ -72,7 +72,7 @@ def check_device(credential_id, user):
     credential = get_credential_for_user(credential_id, user)
     adapter = get_adapter_for_provider(credential.order.product.provider)
     mac = credential.streaming_username or credential.external_username
-    return adapter.check_device(mac)
+    return adapter.check_device(mac, credential=credential)
 
 
 def check_device_by_mac(mac, user):
@@ -170,3 +170,40 @@ def add_playlists_by_mac(mac, playlists):
         return {'error': 'No active HotPlayer provider configured.'}
     adapter = get_adapter_for_provider(provider)
     return adapter.add_playlists(mac, playlists)
+
+
+def refund_device(credential_id, user):
+    credential = get_credential_for_user(credential_id, user)
+    adapter = get_adapter_for_provider(credential.order.product.provider)
+    
+    if 'refund' not in adapter.capabilities:
+        raise NotImplementedError(f"Refund not supported by {credential.order.product.provider.name}")
+
+    with transaction.atomic():
+        # Call provider refund
+        result = adapter.refund(credential)
+        
+        order = credential.order
+        total = order.total_credits
+        
+        # Refund credits to user
+        reseller = CustomUser.objects.select_for_update().get(id=user.id)
+        reseller.credit_balance += total
+        reseller.save()
+        
+        CreditTransaction.objects.create(
+            reseller=reseller,
+            delta=total,
+            balance_after=reseller.credit_balance,
+            actor=CreditTransaction.Actor.SYSTEM,
+            reason=f"Refund for order #{order.uuid}",
+        )
+        
+        # Update statuses
+        order.status = 'REFUNDED'
+        order.save()
+        
+        credential.is_revoked = True
+        credential.save()
+        
+    return {'result': result, 'credential': credential, 'refunded_credits': total}

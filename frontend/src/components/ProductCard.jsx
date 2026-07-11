@@ -17,6 +17,10 @@ function getDurationVariant(variants, label) {
   return variants.find((v) => v.display_name !== 'Lifetime') || variants[0];
 }
 
+function formatDuration(variant) {
+  return variant.display_name || `${variant.duration_months} Month${variant.duration_months > 1 ? 's' : ''}`;
+}
+
 export default function ProductCard({ product, onError }) {
   const [quantity, setQuantity] = useState(1);
   const [buying, setBuying] = useState(false);
@@ -26,10 +30,13 @@ export default function ProductCard({ product, onError }) {
   const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
 
   const isHotPlayer = product.provider_key === 'hotplayer';
+  const isGoldenApi = product.provider_key === 'golden_api';
 
-  // MAC modal state
-  const [showMacModal, setShowMacModal] = useState(false);
+  // Purchase modal state (shared for HotPlayer and Golden API)
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [macInput, setMacInput] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const [modalDuration, setModalDuration] = useState('year');
   const [modalError, setModalError] = useState('');
@@ -58,26 +65,32 @@ export default function ProductCard({ product, onError }) {
 
   const handleBuy = () => {
     if (!selectedVariant) return;
-    if (isHotPlayer) {
-      const initialDuration = selectedVariant.display_name === 'Lifetime' ? 'forever' : 'year';
+    if (isHotPlayer || isGoldenApi) {
+      if (isHotPlayer) {
+        const initialDuration = selectedVariant.display_name === 'Lifetime' ? 'forever' : 'year';
+        setModalDuration(initialDuration);
+      }
       setMacInput('');
+      setUsernameInput('');
+      setPasswordInput('');
       setNoteInput('');
-      setModalDuration(initialDuration);
       setModalError('');
       setCheckResult(null);
-      setShowMacModal(true);
+      setShowPurchaseModal(true);
       return;
     }
     submitPurchase(selectedVariant.id, quantity);
   };
 
-  const submitPurchase = async (variantId, qty, mac, note) => {
+  const submitPurchase = async (variantId, qty, mac, note, username, password) => {
     setBuying(true);
     const idempotencyKey = generateUUID();
     try {
       const body = { variant_id: variantId, quantity: qty };
       if (mac) body.mac = mac;
       if (note) body.note = note;
+      if (username) body.username = username;
+      if (password) body.password = password;
       const { data } = await api.post('/purchase/', body, {
         headers: { 'Idempotency-Key': idempotencyKey },
       });
@@ -95,38 +108,54 @@ export default function ProductCard({ product, onError }) {
     }
   };
 
-  const handleActivate = async () => {
-    const trimmedMac = macInput.trim();
-    if (!trimmedMac) {
-      setModalError('MAC address is required.');
-      return;
-    }
-    if (!MAC_REGEX.test(trimmedMac)) {
-      setModalError('Invalid MAC address. Use format XX:XX:XX:XX:XX:XX');
-      return;
-    }
+  const handleModalSubmit = async () => {
     setModalError('');
     setActivating(true);
-    const variant = getDurationVariant(variants, modalDuration);
-    if (!variant) {
-      setModalError('No valid variant selected.');
-      setActivating(false);
-      return;
-    }
-    try {
-      await submitPurchase(variant.id, 1, trimmedMac.toUpperCase(), noteInput.trim());
-      setShowMacModal(false);
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Activation failed';
-      setModalError(msg);
-    } finally {
-      setActivating(false);
+    let variant = selectedVariant;
+
+    if (isHotPlayer) {
+      const trimmedMac = macInput.trim();
+      if (!trimmedMac) {
+        setModalError('MAC address is required.');
+        setActivating(false);
+        return;
+      }
+      if (!MAC_REGEX.test(trimmedMac)) {
+        setModalError('Invalid MAC address. Use format XX:XX:XX:XX:XX:XX');
+        setActivating(false);
+        return;
+      }
+      variant = getDurationVariant(variants, modalDuration);
+      if (!variant) {
+        setModalError('No valid variant selected.');
+        setActivating(false);
+        return;
+      }
+      try {
+        await submitPurchase(variant.id, 1, trimmedMac.toUpperCase(), noteInput.trim());
+        setShowPurchaseModal(false);
+      } catch (err) {
+        setModalError(err.response?.data?.error || err.message || 'Activation failed');
+      } finally {
+        setActivating(false);
+      }
+    } else if (isGoldenApi) {
+      try {
+        await submitPurchase(variant.id, quantity, null, noteInput.trim(), usernameInput.trim(), passwordInput.trim());
+        setShowPurchaseModal(false);
+      } catch (err) {
+        setModalError(err.response?.data?.error || err.message || 'Purchase failed');
+      } finally {
+        setActivating(false);
+      }
     }
   };
 
   const handleCancel = () => {
-    setShowMacModal(false);
+    setShowPurchaseModal(false);
     setMacInput('');
+    setUsernameInput('');
+    setPasswordInput('');
     setNoteInput('');
     setModalError('');
     setCheckResult(null);
@@ -164,7 +193,7 @@ export default function ProductCard({ product, onError }) {
         {variants.length > 0 && (
           <div className="mt-4">
             <label className="text-sm text-gray-600 block mb-1">Duration:</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {variants.length === 1 ? (
                 <span className="px-3 py-1.5 text-sm font-medium rounded bg-gray-100 text-gray-500 cursor-default">
                   {variants[0].display_name || 'Lifetime'}
@@ -207,97 +236,151 @@ export default function ProductCard({ product, onError }) {
         </div>
       </div>
 
-      {showMacModal && (
+      {showPurchaseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Activate Device</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              {isHotPlayer ? 'Activate Device' : 'Configure Line'}
+            </h2>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  MAC Address <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={macInput}
-                    onChange={(e) => { setMacInput(e.target.value); setCheckResult(null); }}
-                    placeholder="00:1A:79:AB:CD:EF"
-                    maxLength={17}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  <button
-                    onClick={handleCheckDevice}
-                    disabled={checking}
-                    className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {checking ? '...' : 'Check'}
-                  </button>
-                </div>
-
-                {checkResult && (
-                  <div className={`mt-2 p-3 rounded text-sm border ${
-                    checkResult.error
-                      ? 'bg-red-50 border-red-200 text-red-700'
-                      : checkResult.found
-                        ? 'bg-green-50 border-green-200 text-green-800'
-                        : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                  }`}>
-                    {checkResult.error ? (
-                      checkResult.error
-                    ) : checkResult.found ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                            checkResult.status === 'active' ? 'bg-green-200 text-green-900' :
-                            checkResult.status === 'expiring_soon' ? 'bg-yellow-200 text-yellow-900' :
-                            checkResult.status === 'expired' ? 'bg-red-200 text-red-900' :
-                            'bg-blue-200 text-blue-900'
-                          }`}>
-                            {checkResult.status === 'lifetime' ? 'Lifetime' :
-                             checkResult.status === 'active' ? 'Active' :
-                             checkResult.status === 'expiring_soon' ? 'Expiring Soon' :
-                             checkResult.status === 'expired' ? 'Expired' : checkResult.status}
-                          </span>
-                          <span className="text-green-800">{checkResult.mac}</span>
-                        </div>
-                        <div className="text-green-700">
-                          Plan: {checkResult.plan}
-                          {checkResult.expires_at && <> &middot; Expires: {checkResult.expires_at}</>}
-                        </div>
-                      </div>
-                    ) : (
-                      <span>{checkResult.message || 'MAC not found on HotPlayer.'}</span>
-                    )}
+              {isHotPlayer && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    MAC Address <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={macInput}
+                      onChange={(e) => { setMacInput(e.target.value); setCheckResult(null); }}
+                      placeholder="00:1A:79:AB:CD:EF"
+                      maxLength={17}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <button
+                      onClick={handleCheckDevice}
+                      disabled={checking}
+                      className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {checking ? '...' : 'Check'}
+                    </button>
                   </div>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subscription</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setModalDuration('year')}
-                    className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
-                      modalDuration === 'year'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    1 YEAR (1 CREDIT)
-                  </button>
-                  <button
-                    onClick={() => setModalDuration('forever')}
-                    className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
-                      modalDuration === 'forever'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    FOREVER (2.5 CREDITS)
-                  </button>
+                  {checkResult && (
+                    <div className={`mt-2 p-3 rounded text-sm border ${
+                      checkResult.error
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : checkResult.found
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    }`}>
+                      {checkResult.error ? (
+                        checkResult.error
+                      ) : checkResult.found ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                              checkResult.status === 'active' ? 'bg-green-200 text-green-900' :
+                              checkResult.status === 'expiring_soon' ? 'bg-yellow-200 text-yellow-900' :
+                              checkResult.status === 'expired' ? 'bg-red-200 text-red-900' :
+                              'bg-blue-200 text-blue-900'
+                            }`}>
+                              {checkResult.status === 'lifetime' ? 'Lifetime' :
+                               checkResult.status === 'active' ? 'Active' :
+                               checkResult.status === 'expiring_soon' ? 'Expiring Soon' :
+                               checkResult.status === 'expired' ? 'Expired' : checkResult.status}
+                            </span>
+                            <span className="text-green-800">{checkResult.mac}</span>
+                          </div>
+                          <div className="text-green-700">
+                            Plan: {checkResult.plan}
+                            {checkResult.expires_at && <> &middot; Expires: {checkResult.expires_at}</>}
+                          </div>
+                        </div>
+                      ) : (
+                        <span>{checkResult.message || 'MAC not found on HotPlayer.'}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {isGoldenApi && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Package <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedVariant?.id || ''}
+                      onChange={(e) => {
+                        const v = variants.find(x => x.id === parseInt(e.target.value));
+                        if (v) setSelectedVariant(v);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                    >
+                      {variants.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {formatDuration(v)} ({v.price_in_credits} credits)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Username <span className="text-gray-400 font-normal">(optional, auto-generated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={(e) => setUsernameInput(e.target.value)}
+                      placeholder="Custom username"
+                      className="w-full px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password <span className="text-gray-400 font-normal">(optional, auto-generated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      placeholder="Custom password"
+                      className="w-full px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {isHotPlayer && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subscription</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setModalDuration('year')}
+                      className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
+                        modalDuration === 'year'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      1 YEAR (1 CREDIT)
+                    </button>
+                    <button
+                      onClick={() => setModalDuration('forever')}
+                      className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
+                        modalDuration === 'forever'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      FOREVER (2.5 CREDITS)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -321,11 +404,11 @@ export default function ProductCard({ product, onError }) {
 
             <div className="mt-6 flex gap-3">
               <button
-                onClick={handleActivate}
+                onClick={handleModalSubmit}
                 disabled={activating}
                 className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {activating ? 'Activating...' : 'Activate'}
+                {activating ? 'Processing...' : (isHotPlayer ? 'Activate' : 'Purchase')}
               </button>
               <button
                 onClick={handleCancel}

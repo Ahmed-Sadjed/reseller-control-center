@@ -36,6 +36,7 @@ class Provider(models.Model):
         NEO4K = 'neo4k', 'NEO 4K'
         GOLD_PANEL = 'goldpanel', 'Gold Panel'
         HOTPLAYER = 'hotplayer', 'HotPlayer'
+        GOLDEN_API = 'golden_api', 'Golden API'
         MOCK = 'mock', 'Mock'
 
     name = models.CharField(max_length=100, unique=True)
@@ -95,6 +96,8 @@ class Product(models.Model):
         THREE_MONTHS = 3, '3 Months'
         SIX_MONTHS = 6, '6 Months'
         TWELVE_MONTHS = 12, '12 Months'
+        TWENTY_FOUR_MONTHS = 24, '2 Years'
+        THIRTY_SIX_MONTHS = 36, '3 Years'
 
     name = models.CharField(max_length=100)
     category_old = models.CharField(

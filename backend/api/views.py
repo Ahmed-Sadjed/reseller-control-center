@@ -30,6 +30,7 @@ from .device_services import (
     add_playlists as device_add_playlists,
     add_playlists_by_mac,
     delete_playlists as device_delete_playlists,
+    refund_device as device_refund,
     InsufficientCredits as DeviceInsufficientCredits,
     NoMatchingVariant,
 )
@@ -161,6 +162,8 @@ class PurchaseView(APIView):
         quantity = serializer.validated_data['quantity']
         mac = serializer.validated_data.get('mac', '') or ''
         note = serializer.validated_data.get('note', '') or ''
+        username = serializer.validated_data.get('username', '') or ''
+        password = serializer.validated_data.get('password', '') or ''
 
         try:
             order = reserve_phase(request.user, variant, quantity, idempotency_key)
@@ -168,7 +171,9 @@ class PurchaseView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         if quantity <= settings.ASYNC_THRESHOLD:
-            credentials, failure = fulfill_sync(order, mac=mac, note=note)
+            credentials, failure = fulfill_sync(
+                order, mac=mac, note=note, username=username, password=password
+            )
             if failure:
                 return Response({'error': failure}, status=status.HTTP_400_BAD_REQUEST)
             cred_serializer = CredentialSerializer(credentials, many=True)
@@ -178,7 +183,9 @@ class PurchaseView(APIView):
                 'credentials': cred_serializer.data,
             }, status=status.HTTP_201_CREATED)
         else:
-            fulfill_order_async.delay(order.id)
+            fulfill_order_async.delay(
+                order.id, mac=mac, note=note, username=username, password=password
+            )
             return Response({
                 'order_id': order.uuid,
                 'status': 'PENDING',
@@ -395,6 +402,17 @@ class CredentialDeviceActivateView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except NoMatchingVariant as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotImplementedError as e:
+            return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CredentialDeviceRefundView(APIView):
+    def post(self, request, credential_id):
+        try:
+            result = device_refund(credential_id, request.user)
+            return Response(result, status=status.HTTP_200_OK)
         except NotImplementedError as e:
             return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
         except Exception as e:

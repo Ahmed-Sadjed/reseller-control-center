@@ -73,6 +73,8 @@ class PurchaseSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1, max_value=50)
     mac = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    username = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_variant_id(self, value):
         try:
@@ -132,7 +134,12 @@ class CredentialSerializer(serializers.ModelSerializer):
         model = Credential
         fields = ['id', 'username', 'password', 'dns_domain', 'm3u_url',
                   'expires_at', 'provider_adapter_key', 'credential_data',
-                  'provider_config']
+                  'provider_config', 'product_id']
+
+    def get_product_id(self, obj):
+        return obj.order.product_id
+
+    product_id = serializers.SerializerMethodField()
 
     def get_password(self, obj):
         return decrypt_password(obj.encrypted_password)
@@ -143,15 +150,12 @@ class CredentialSerializer(serializers.ModelSerializer):
         return None
 
     def get_credential_data(self, obj):
-        """
-        Merge the decrypted password back into the data field at read time.
-        This ensures the frontend receives complete credential data (including secrets)
-        without storing secrets in plaintext JSONB.
-        """
         data = dict(obj.data) if obj.data else {}
         decrypted = decrypt_password(obj.encrypted_password)
         if decrypted:
             data['secret_password'] = decrypted
+        data['created_at'] = obj.created_at.isoformat() if obj.created_at else ''
+        data['package'] = obj.order.product_name_at_purchase if obj.order else ''
         return data
 
     def get_provider_config(self, obj):
@@ -203,7 +207,12 @@ class CredentialListSerializer(serializers.ModelSerializer):
         model = Credential
         fields = ['id', 'username', 'expires_at', 'is_revoked',
                   'provider_adapter_key', 'product_name', 'order_uuid', 'order_created',
-                  'credential_data', 'provider_config', 'created_at']
+                  'credential_data', 'provider_config', 'created_at', 'product_id']
+
+    def get_product_id(self, obj):
+        return obj.order.product_id
+
+    product_id = serializers.SerializerMethodField()
 
     def get_provider_adapter_key(self, obj):
         if obj.order.product and obj.order.product.provider:
@@ -211,11 +220,12 @@ class CredentialListSerializer(serializers.ModelSerializer):
         return None
 
     def get_credential_data(self, obj):
-        """Merge decrypted password into data for list view too."""
         data = dict(obj.data) if obj.data else {}
         decrypted = decrypt_password(obj.encrypted_password)
         if decrypted:
             data['secret_password'] = decrypted
+        data['created_at'] = obj.created_at.isoformat() if obj.created_at else ''
+        data['package'] = obj.order.product_name_at_purchase if obj.order else ''
         return data
 
     def get_provider_config(self, obj):

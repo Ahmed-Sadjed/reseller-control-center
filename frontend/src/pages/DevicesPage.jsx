@@ -8,6 +8,8 @@ const MAC_REGEX = /^([0-9A-Za-f]{2}:){5}[0-9A-Za-f]{2}$/;
 const PROVIDER_BADGES = {
   hotplayer: 'bg-purple-100 text-purple-800',
   neo4k: 'bg-blue-100 text-blue-800',
+  golden_api: 'bg-amber-100 text-amber-800',
+  goldpanel: 'bg-green-100 text-green-800',
   mock: 'bg-gray-100 text-gray-800',
 };
 
