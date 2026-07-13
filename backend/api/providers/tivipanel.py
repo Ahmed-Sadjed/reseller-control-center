@@ -68,7 +68,7 @@ class TiviPanelAdapter(BaseProviderAdapter):
         except ValueError as e:
             raise ProviderInvalidResponseError(f"TiviPanel invalid JSON: {e}")
 
-        if data.get('status') != 'true':
+        if str(data.get('status')).lower() != 'true':
             error_msg = data.get('message') or 'Unknown provider error'
             raise ProviderAPIError(f"TiviPanel error: {error_msg}")
 
