@@ -637,7 +637,7 @@ class TestTiviPanelAdapter(TestCase, StandardFormatMixin):
         self.assertIsNotNone(result['expires_at'])
 
     @patch('api.providers.tivipanel.requests.get')
-    def test_create_24_month_sends_package_12(self, mock_get):
+    def test_create_uses_pack_id_as_package(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "true", "username": "u1", "password": "p1"}
@@ -645,9 +645,22 @@ class TestTiviPanelAdapter(TestCase, StandardFormatMixin):
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        self.adapter.create(pack_id=12, months=24)
+        self.adapter.create(pack_id=35, months=1)
         params = mock_get.call_args.kwargs['params']
-        self.assertEqual(params['package'], 12)
+        self.assertEqual(params['package'], 35)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_trial_uses_pack_id_as_package(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "trial_u", "password": "trial_p"}
+        mock_response.text = '{"status": "true", "username": "trial_u", "password": "trial_p"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=35, months=102)
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['package'], 35)
 
     @patch('api.providers.tivipanel.requests.get')
     def test_create_3_year_expiry(self, mock_get):

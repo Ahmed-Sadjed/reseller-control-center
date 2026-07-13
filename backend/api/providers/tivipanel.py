@@ -37,12 +37,7 @@ class TiviPanelAdapter(BaseProviderAdapter):
         if is_lifetime:
             raise ValueError("TiviPanel does not support lifetime subscriptions")
 
-        if months in (24, 36):
-            package = 12
-        elif months >= 100:
-            package = 0
-        else:
-            package = months
+        package = pack_id
 
         params = {
             'action': 'new',
