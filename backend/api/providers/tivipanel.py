@@ -84,7 +84,7 @@ class TiviPanelAdapter(BaseProviderAdapter):
         if not username or not password:
             raise ProviderInvalidResponseError("Missing username/password in TiviPanel response")
 
-        m3u_url = f"http://{self.dns_domain}:{self.port}/get.php?username={username}&password={password}"
+        m3u_url = f"https://{self.dns_domain}:{self.port}/get.php?username={username}&password={password}"
 
         expires_at = None
         if months in DURATION_MAP:

@@ -79,7 +79,7 @@ class CMSOnlyAdapter(BaseProviderAdapter):
         if not streaming_username:
             streaming_username = username
 
-        m3u_url = full_url or f"http://{self.dns_domain}:{self.port}/get.php?username={streaming_username}&password={password}"
+        m3u_url = full_url or f"https://{self.dns_domain}:{self.port}/get.php?username={streaming_username}&password={password}"
 
         logger.info("Successfully created line: user_id=%s, streaming_username=%s, has_password=%s, has_url=%s",
                      username, streaming_username, bool(password), bool(full_url))

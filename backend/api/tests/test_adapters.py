@@ -283,10 +283,10 @@ class TestCMSOnlyAdapter(TestCase, StandardFormatMixin):
     def test_create_returns_standard_format(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.text = '{"user_id": "testuser123", "url": "http://kmapp.xyz:8080/get.php?username=stream1&password=pass1"}'
+        mock_response.text = '{"user_id": "testuser123", "url": "https://kmapp.xyz:8080/get.php?username=stream1&password=pass1"}'
         mock_response.json.return_value = {
             'user_id': 'testuser123',
-            'url': 'http://kmapp.xyz:8080/get.php?username=stream1&password=pass1',
+            'url': 'https://kmapp.xyz:8080/get.php?username=stream1&password=pass1',
         }
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
@@ -298,10 +298,10 @@ class TestCMSOnlyAdapter(TestCase, StandardFormatMixin):
     def test_create_extracts_credentials_correctly(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.text = '{"user_id": "u1", "url": "http://kmapp.xyz:8080/get.php?username=stream_u1&password=secret123"}'
+        mock_response.text = '{"user_id": "u1", "url": "https://kmapp.xyz:8080/get.php?username=stream_u1&password=secret123"}'
         mock_response.json.return_value = {
             'user_id': 'u1',
-            'url': 'http://kmapp.xyz:8080/get.php?username=stream_u1&password=secret123',
+            'url': 'https://kmapp.xyz:8080/get.php?username=stream_u1&password=secret123',
         }
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response

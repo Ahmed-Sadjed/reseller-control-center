@@ -29,7 +29,7 @@ class MockProviderAdapter(BaseProviderAdapter):
 
         dns_domain = self.provider.extra_config.get("dns_domain", "mock-provider.tv") if self.provider else "mock-provider.tv"
         port = self.provider.extra_config.get("port", 8080) if self.provider else 8080
-        m3u_url = f"http://{dns_domain}:{port}/get.php?username={streaming_username}&password={password}"
+        m3u_url = f"https://{dns_domain}:{port}/get.php?username={streaming_username}&password={password}"
         panel_url = self.provider.extra_config.get("panel_url", "https://api.tivipanel.net") if self.provider else "https://api.tivipanel.net"
 
         expires_at = None

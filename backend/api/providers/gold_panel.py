@@ -81,7 +81,7 @@ class GoldPanelAdapter(BaseProviderAdapter):
         if not streaming_username:
             streaming_username = user_id
 
-        m3u_url = full_url or f"http://{self.dns_domain}:{self.port}/get.php?username={streaming_username}&password={password}"
+        m3u_url = full_url or f"https://{self.dns_domain}:{self.port}/get.php?username={streaming_username}&password={password}"
 
         expires_at = None
         if not is_lifetime:
