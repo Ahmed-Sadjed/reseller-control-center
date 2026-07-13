@@ -587,6 +587,17 @@ class TestTiviPanelAdapter(TestCase, StandardFormatMixin):
         self.assert_standard_format(result)
 
     @patch('api.providers.tivipanel.requests.get')
+    def test_create_handles_list_response(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"status": "true", "username": "u_list", "password": "p_list"}]
+        mock_response.text = '[{"status": "true", "username": "u_list", "password": "p_list"}]'
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=1, months=1)
+        self.assertEqual(result['external_id'], 'u_list')
+
+    @patch('api.providers.tivipanel.requests.get')
     def test_create_credentials_correct(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200

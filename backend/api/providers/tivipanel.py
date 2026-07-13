@@ -59,6 +59,8 @@ class TiviPanelAdapter(BaseProviderAdapter):
             response = requests.get(self.api_url, params=params, timeout=self.timeout)
             logger.info("TiviPanel response: %s %s", response.status_code, response.text[:500])
             data = response.json()
+            if isinstance(data, list):
+                data = data[0] if data else {}
         except requests.Timeout as e:
             raise ProviderTimeoutError(f"TiviPanel timeout: {e}")
         except requests.ConnectionError as e:
