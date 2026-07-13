@@ -50,8 +50,7 @@ class TiviPanelAdapter(BaseProviderAdapter):
             params['template'] = kwargs['template']
         if kwargs.get('notes'):
             params['notes'] = kwargs['notes']
-        if kwargs.get('country'):
-            params['country'] = kwargs['country']
+        params['country'] = kwargs.get('country', 'ALL')
 
         log_params = {k: v for k, v in params.items() if k != 'api_key'}
 
@@ -59,14 +58,11 @@ class TiviPanelAdapter(BaseProviderAdapter):
             logger.info("TiviPanel create with params: %s", log_params)
             response = requests.get(self.api_url, params=params, timeout=self.timeout)
             logger.info("TiviPanel response: %s %s", response.status_code, response.text[:500])
-            response.raise_for_status()
             data = response.json()
         except requests.Timeout as e:
             raise ProviderTimeoutError(f"TiviPanel timeout: {e}")
         except requests.ConnectionError as e:
             raise ProviderTimeoutError(f"TiviPanel connection error: {e}")
-        except requests.HTTPError as e:
-            raise ProviderAPIError(f"TiviPanel HTTP {response.status_code}: {e}")
         except ValueError as e:
             raise ProviderInvalidResponseError(f"TiviPanel invalid JSON: {e}")
 
