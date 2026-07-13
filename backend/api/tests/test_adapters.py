@@ -13,11 +13,12 @@ from django.utils import timezone
 
 from api.models import Provider
 from api.providers import ADAPTER_REGISTRY
-from api.providers.base import BaseProviderAdapter
+from api.providers.base import BaseProviderAdapter, ProviderAPIError, ProviderInvalidResponseError
 from api.providers.mock import MockProviderAdapter
 from api.providers.hotplayer import HotPlayerAdapter
 from api.providers.cms_only import CMSOnlyAdapter
 from api.providers.golden_api import GoldenAPIAdapter
+from api.providers.tivipanel import TiviPanelAdapter
 from api.utils import encrypt_password
 
 
@@ -125,6 +126,7 @@ class TestMockProviderAdapter(TestCase, StandardFormatMixin):
         self.assertIn('username', creds)
         self.assertIn('secret_password', creds)
         self.assertIn('m3u_url', creds)
+        self.assertIn('panel_url', creds)
 
     def test_create_external_id_is_string(self):
         result = self.adapter.create(pack_id=1, months=1)
@@ -550,3 +552,155 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
         credential.data = {'line_id': 42}
         result = self.adapter.refund(credential=credential)
         self.assertEqual(result['status'], 'refunded')
+
+
+class TestTiviPanelAdapter(TestCase, StandardFormatMixin):
+    """Test TiviPanelAdapter with mocked HTTP — no real API calls."""
+
+    def setUp(self):
+        self.provider = MockProviderModel(
+            adapter_key='tivipanel',
+            api_endpoint='https://api.tivipanel.net/reseller/panel_api.php',
+            extra_config={
+                'dns_domain': 'tivipanel.net',
+                'port': 8080,
+                'timeout': 10,
+            }
+        )
+        self.adapter = TiviPanelAdapter(provider=self.provider)
+
+    def test_capabilities(self):
+        caps = self.adapter.capabilities
+        self.assertIn('create', caps)
+        self.assertEqual(len(caps), 1)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_returns_standard_format(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '{"status": "true", "username": "u1", "password": "pass1"}'
+        mock_response.json.return_value = {"status": "true", "username": "u1", "password": "pass1"}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=1, months=1)
+        self.assert_standard_format(result)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_credentials_correct(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "testuser", "password": "testpass"}
+        mock_response.text = '{"status": "true", "username": "testuser", "password": "testpass"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=1, months=1)
+        creds = result['credentials']
+        self.assertIn('username', creds)
+        self.assertIn('secret_password', creds)
+        self.assertIn('dns_domain', creds)
+        self.assertIn('m3u_url', creds)
+        self.assertEqual(creds['username'], 'testuser')
+        self.assertEqual(creds['secret_password'], 'testpass')
+        self.assertEqual(creds['dns_domain'], 'tivipanel.net')
+        self.assertEqual(creds['panel_url'], 'https://api.tivipanel.net')
+        self.assertEqual(result['external_id'], 'testuser')
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_1_month_expiry(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "u1", "password": "p1"}
+        mock_response.text = '{"status": "true", "username": "u1", "password": "p1"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        before = timezone.now()
+        result = self.adapter.create(pack_id=1, months=1)
+        after = timezone.now()
+        expected_min = before + timedelta(days=30)
+        expected_max = after + timedelta(days=30)
+        self.assertGreaterEqual(result['expires_at'], expected_min)
+        self.assertLessEqual(result['expires_at'], expected_max)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_6h_trial_expiry(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "trial_u", "password": "trial_p"}
+        mock_response.text = '{"status": "true", "username": "trial_u", "password": "trial_p"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=0, months=100)
+        self.assertIsNotNone(result['expires_at'])
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_24_month_sends_package_12(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "u1", "password": "p1"}
+        mock_response.text = '{"status": "true", "username": "u1", "password": "p1"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=12, months=24)
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['package'], 12)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_3_year_expiry(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "u1", "password": "p1"}
+        mock_response.text = '{"status": "true", "username": "u1", "password": "p1"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=12, months=36)
+        expected = timezone.now() + timedelta(days=1095)
+        self.assertIsNotNone(result['expires_at'])
+
+    def test_create_lifetime_raises(self):
+        with self.assertRaises(ValueError):
+            self.adapter.create(pack_id=1, months=1, is_lifetime=True)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_provider_error(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "false", "message": "Invalid API key"}
+        mock_response.text = '{"status": "false", "message": "Invalid API key"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        with self.assertRaises(ProviderAPIError):
+            self.adapter.create(pack_id=1, months=1)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_missing_credentials_raises(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true"}
+        mock_response.text = '{"status": "true"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        with self.assertRaises(ProviderInvalidResponseError):
+            self.adapter.create(pack_id=1, months=1)
+
+    @patch('api.providers.tivipanel.requests.get')
+    def test_create_passes_optional_params(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "true", "username": "u1", "password": "p1"}
+        mock_response.text = '{"status": "true", "username": "u1", "password": "p1"}'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=1, months=1, template='tmpl1', notes='test note', country='US')
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['template'], 'tmpl1')
+        self.assertEqual(params['notes'], 'test note')
+        self.assertEqual(params['country'], 'US')

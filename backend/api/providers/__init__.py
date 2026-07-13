@@ -3,6 +3,7 @@ from .cms_only import CMSOnlyAdapter
 from .gold_panel import GoldPanelAdapter
 from .hotplayer import HotPlayerAdapter
 from .golden_api import GoldenAPIAdapter
+from .tivipanel import TiviPanelAdapter
 from .mock import MockProviderAdapter
 
 
@@ -11,6 +12,7 @@ ADAPTER_REGISTRY = {
     'goldpanel': GoldPanelAdapter,
     'hotplayer': HotPlayerAdapter,
     'golden_api': GoldenAPIAdapter,
+    'tivipanel': TiviPanelAdapter,
     'mock': MockProviderAdapter,
 }
 
