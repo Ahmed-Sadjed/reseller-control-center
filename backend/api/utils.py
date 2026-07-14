@@ -20,6 +20,8 @@ def decrypt_password(ciphertext) -> str:
         return ""
     if isinstance(ciphertext, memoryview):
         ciphertext = bytes(ciphertext)
+    if isinstance(ciphertext, str):
+        ciphertext = ciphertext.encode()
     if not isinstance(ciphertext, bytes):
         return ""
     f = get_fernet()
