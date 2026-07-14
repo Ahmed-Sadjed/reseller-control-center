@@ -7,18 +7,38 @@ from .base import BaseProviderAdapter, ProviderAPIError, ProviderTimeoutError, P
 
 logger = logging.getLogger(__name__)
 
+SUB_MAP = {
+    100: 0,
+    101: 0,
+    102: 0,
+    103: 0,
+    1: 1,
+    3: 3,
+    6: 6,
+    12: 12,
+    24: 12,
+    36: 12,
+}
+
 DURATION_MAP = {
+    100: timedelta(hours=6),
+    101: timedelta(hours=12),
+    102: timedelta(hours=24),
+    103: timedelta(hours=72),
     1: timedelta(days=30),
     3: timedelta(days=90),
     6: timedelta(days=180),
     12: timedelta(days=365),
+    24: timedelta(days=730),
+    36: timedelta(days=1095),
 }
 
 class PromaxAdapter(BaseProviderAdapter):
     def __init__(self, provider):
         super().__init__(provider)
         self.api_url = provider.api_endpoint
-        self.api_key = provider.get_token()
+        raw_key = provider.get_token()
+        self.api_key = urllib.parse.unquote(raw_key)
         self.timeout = provider.extra_config.get('timeout', 30)
 
     @property
@@ -26,18 +46,19 @@ class PromaxAdapter(BaseProviderAdapter):
         return {'create'}
 
     def create(self, pack_id: int, months: int, is_lifetime: bool = False, **kwargs) -> dict:
+        mapped_sub = SUB_MAP.get(months, months)
         params = {
             'action': 'new',
             'type': 'm3u',
-            'sub': months,
+            'sub': mapped_sub,
             'pack': int(kwargs.get('template_id', pack_id)),
-            'api_key': self.api_key,
         }
 
         if kwargs.get('note'):
             params['notes'] = kwargs['note']
         params['country'] = kwargs.get('country', 'ALL')
         params['adult'] = 1 if kwargs.get('adult') else 0
+        params['api_key'] = self.api_key
 
         log_params = {k: v for k, v in params.items() if k != 'api_key'}
 
@@ -74,6 +95,8 @@ class PromaxAdapter(BaseProviderAdapter):
         expires_at = None
         if not is_lifetime and months in DURATION_MAP:
             expires_at = timezone.now() + DURATION_MAP[months]
+        elif not is_lifetime and mapped_sub == 0:
+            expires_at = timezone.now() + timedelta(hours=72)
 
         return {
             'external_id': external_id,
@@ -91,8 +114,8 @@ class PromaxAdapter(BaseProviderAdapter):
         params = {
             'action': 'bouquet',
             'public': 1,
-            'api_key': self.api_key,
         }
+        params['api_key'] = self.api_key
 
         log_params = {k: v for k, v in params.items() if k != 'api_key'}
         request_url = f"{self.api_url}?action=bouquet&public=1&api_key=<REDACTED>"

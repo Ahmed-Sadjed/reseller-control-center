@@ -955,3 +955,59 @@ class TestPromaxAdapter(TestCase, StandardFormatMixin):
         self.assertEqual(params['action'], 'bouquet')
         self.assertEqual(params['public'], 1)
         self.assertIn('api_key', params)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_maps_trial_to_sub_0(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "trial1",
+            "url": "http://cdn.example.com/get.php?username=trial&password=trial"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"trial1"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=3859, months=103)
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['sub'], 0)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_maps_24_months_to_sub_12(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "u1",
+            "url": "http://cdn.example.com/get.php?username=u&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"u1"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=1, months=24)
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['sub'], 12)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_trial_expiry(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "trial2",
+            "url": "http://cdn.example.com/get.php?username=trial2&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"trial2"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        before = timezone.now()
+        result = self.adapter.create(pack_id=1, months=103)
+        after = timezone.now()
+        expected_min = before + timedelta(hours=72)
+        expected_max = after + timedelta(hours=72)
+        self.assertIsNotNone(result['expires_at'])
+        self.assertGreaterEqual(result['expires_at'], expected_min)
+        self.assertLessEqual(result['expires_at'], expected_max)
