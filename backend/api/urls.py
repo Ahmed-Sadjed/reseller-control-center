@@ -29,4 +29,5 @@ urlpatterns = [
     path('device/playlists/', views.DevicePlaylistsByMacView.as_view(), name='device-playlists'),
     path('golden-templates/', views.GoldenTemplatesView.as_view(), name='golden-templates'),
     path('golden-domains/', views.GoldenDomainsView.as_view(), name='golden-domains'),
+    path('promax-bouquets/', views.PromaxBouquetsView.as_view(), name='promax-bouquets'),
 ]

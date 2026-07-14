@@ -515,3 +515,23 @@ class GoldenDomainsView(APIView):
             return Response({'error': 'Adapter does not support domains.'}, status=status.HTTP_501_NOT_IMPLEMENTED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PromaxBouquetsView(APIView):
+    def get(self, request):
+        provider_id = request.query_params.get('provider_id')
+        if not provider_id:
+            return Response({'error': 'provider_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = get_object_or_404(Provider, id=provider_id)
+        if provider.adapter_key != 'promax':
+            return Response({'error': 'Bouquets are only available for Promax providers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            adapter = get_adapter_for_provider(provider)
+            bouquets = adapter.get_bouquets()
+            return Response({'bouquets': bouquets})
+        except AttributeError:
+            return Response({'error': 'Adapter does not support bouquets.'}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

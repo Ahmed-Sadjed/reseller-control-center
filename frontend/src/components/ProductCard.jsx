@@ -31,8 +31,9 @@ export default function ProductCard({ product, onError }) {
 
   const isHotPlayer = product.provider_key === 'hotplayer';
   const isGoldenApi = product.provider_key === 'golden_api';
+  const isPromax = product.provider_key === 'promax';
 
-  // Purchase modal state (shared for HotPlayer and Golden API)
+  // Purchase modal state (shared for HotPlayer, Golden API, and Promax)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [macInput, setMacInput] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
@@ -47,6 +48,8 @@ export default function ProductCard({ product, onError }) {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [domains, setDomains] = useState([]);
   const [selectedDomainId, setSelectedDomainId] = useState('');
+  const [bouquets, setBouquets] = useState([]);
+  const [selectedBouquetId, setSelectedBouquetId] = useState('');
 
   const handleCheckDevice = async () => {
     const trimmedMac = macInput.trim().toUpperCase();
@@ -69,7 +72,7 @@ export default function ProductCard({ product, onError }) {
 
   const handleBuy = () => {
     if (!selectedVariant) return;
-    if (isHotPlayer || isGoldenApi) {
+    if (isHotPlayer || isGoldenApi || isPromax) {
       if (isHotPlayer) {
         const initialDuration = selectedVariant.display_name === 'Lifetime' ? 'forever' : 'year';
         setModalDuration(initialDuration);
@@ -90,6 +93,12 @@ export default function ProductCard({ product, onError }) {
         api.get('/golden-domains/', { params: { provider_id: product.provider } })
           .then(res => setDomains(res.data.domains || []))
           .catch(() => setDomains([]));
+      }
+      if (isPromax) {
+        setSelectedBouquetId('');
+        api.get('/promax-bouquets/', { params: { provider_id: product.provider } })
+          .then(res => setBouquets(res.data.bouquets || []))
+          .catch(() => setBouquets([]));
       }
       return;
     }
@@ -164,6 +173,20 @@ export default function ProductCard({ product, onError }) {
       } finally {
         setActivating(false);
       }
+    } else if (isPromax) {
+      if (!selectedBouquetId) {
+        setModalError('Please select a package.');
+        setActivating(false);
+        return;
+      }
+      try {
+        await submitPurchase(variant.id, 1, null, '', '', '', selectedBouquetId, null);
+        setShowPurchaseModal(false);
+      } catch (err) {
+        setModalError(err.response?.data?.error || err.message || 'Purchase failed');
+      } finally {
+        setActivating(false);
+      }
     }
   };
 
@@ -175,6 +198,8 @@ export default function ProductCard({ product, onError }) {
     setNoteInput('');
     setModalError('');
     setCheckResult(null);
+    setBouquets([]);
+    setSelectedBouquetId('');
   };
 
   return (
@@ -322,11 +347,11 @@ export default function ProductCard({ product, onError }) {
                 </div>
               )}
 
-              {isGoldenApi && (
+              {(isGoldenApi || isPromax) && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Package <span className="text-red-500">*</span>
+                      {isPromax ? 'Duration' : 'Package'} <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={selectedVariant?.id || ''}
@@ -343,6 +368,11 @@ export default function ProductCard({ product, onError }) {
                       ))}
                     </select>
                   </div>
+                </>
+              )}
+
+              {isGoldenApi && (
+                <>
                   {templates.length > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -404,6 +434,24 @@ export default function ProductCard({ product, onError }) {
                 </>
               )}
 
+              {isPromax && bouquets.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Package <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedBouquetId}
+                    onChange={(e) => setSelectedBouquetId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                  >
+                    <option value="">Select a package</option>
+                    {bouquets.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {isHotPlayer && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Subscription</label>
@@ -432,18 +480,20 @@ export default function ProductCard({ product, onError }) {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <textarea
-                  value={noteInput}
-                  onChange={(e) => setNoteInput(e.target.value)}
-                  placeholder="Client: John's Firestick"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
+              {!isPromax && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Note <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={noteInput}
+                    onChange={(e) => setNoteInput(e.target.value)}
+                    placeholder="Client: John's Firestick"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              )}
             </div>
 
             {modalError && (

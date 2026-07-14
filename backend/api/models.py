@@ -38,6 +38,7 @@ class Provider(models.Model):
         HOTPLAYER = 'hotplayer', 'HotPlayer'
         GOLDEN_API = 'golden_api', 'Golden API'
         TIVIPANEL = 'tivipanel', 'TiviPanel'
+        PROMAX = 'promax', 'Promax'
         MOCK = 'mock', 'Mock'
 
     name = models.CharField(max_length=100, unique=True)

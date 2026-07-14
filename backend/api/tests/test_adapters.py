@@ -19,6 +19,7 @@ from api.providers.hotplayer import HotPlayerAdapter
 from api.providers.cms_only import CMSOnlyAdapter
 from api.providers.golden_api import GoldenAPIAdapter
 from api.providers.tivipanel import TiviPanelAdapter
+from api.providers.promax import PromaxAdapter
 from api.utils import encrypt_password
 
 
@@ -728,3 +729,229 @@ class TestTiviPanelAdapter(TestCase, StandardFormatMixin):
         self.assertEqual(params['template'], 'tmpl1')
         self.assertEqual(params['notes'], 'test note')
         self.assertEqual(params['country'], 'US')
+
+
+class TestPromaxAdapter(TestCase, StandardFormatMixin):
+    """Test PromaxAdapter with mocked HTTP — no real API calls."""
+
+    def setUp(self):
+        self.provider = MockProviderModel(
+            adapter_key='promax',
+            api_endpoint='https://api.promax-dash.com/api.php',
+            extra_config={
+                'timeout': 10,
+            }
+        )
+        self.adapter = PromaxAdapter(provider=self.provider)
+
+    def test_capabilities(self):
+        caps = self.adapter.capabilities
+        self.assertIn('create', caps)
+        self.assertEqual(len(caps), 1)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_returns_standard_format(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5000",
+            "notes": "example",
+            "country": "EG",
+            "message": "Add M3U successful",
+            "url": "http://reseller-domain.com/get.php?username=testuser&password=testpass&type=m3u_plus&output=ts"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5000","url":"http://reseller-domain.com/get.php?username=testuser&password=testpass&type=m3u_plus&output=ts"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=3859, months=1)
+        self.assert_standard_format(result)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_handles_list_response(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5001",
+            "url": "http://reseller-domain.com/get.php?username=u_list&password=p_list&type=m3u_plus"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5001","url":"http://reseller-domain.com/get.php?username=u_list&password=p_list&type=m3u_plus"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=3857, months=3)
+        self.assertEqual(result['external_id'], '5001')
+        self.assertEqual(result['credentials']['username'], 'u_list')
+        self.assertEqual(result['credentials']['secret_password'], 'p_list')
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_credentials_from_url(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5002",
+            "url": "http://cdn.example.com/get.php?username=stream1&password=secret123&type=m3u_plus&output=ts"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5002","url":"http://cdn.example.com/get.php?username=stream1&password=secret123&type=m3u_plus&output=ts"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.adapter.create(pack_id=1, months=6)
+        creds = result['credentials']
+        self.assertEqual(creds['username'], 'stream1')
+        self.assertEqual(creds['secret_password'], 'secret123')
+        self.assertEqual(creds['m3u_url'], 'http://cdn.example.com/get.php?username=stream1&password=secret123&type=m3u_plus&output=ts')
+        self.assertEqual(creds['panel_url'], 'https://api.promax-dash.com')
+        self.assertEqual(result['external_id'], '5002')
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_sends_correct_params(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5003",
+            "url": "http://cdn.example.com/get.php?username=u&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5003"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=3859, months=12)
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['action'], 'new')
+        self.assertEqual(params['type'], 'm3u')
+        self.assertEqual(params['sub'], 12)
+        self.assertEqual(params['pack'], 3859)
+        self.assertEqual(params['adult'], 0)
+        self.assertEqual(params['country'], 'ALL')
+        self.assertIn('api_key', params)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_uses_template_id_as_pack(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5004",
+            "url": "http://cdn.example.com/get.php?username=u&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5004"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=1, months=6, template_id=3857)
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['pack'], 3857)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_1_month_expiry(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5005",
+            "url": "http://cdn.example.com/get.php?username=u&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5005"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        before = timezone.now()
+        result = self.adapter.create(pack_id=1, months=1)
+        after = timezone.now()
+        expected_min = before + timedelta(days=30)
+        expected_max = after + timedelta(days=30)
+        self.assertIsNotNone(result['expires_at'])
+        self.assertGreaterEqual(result['expires_at'], expected_min)
+        self.assertLessEqual(result['expires_at'], expected_max)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_12_month_expiry(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5006",
+            "url": "http://cdn.example.com/get.php?username=u&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5006"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        before = timezone.now()
+        result = self.adapter.create(pack_id=1, months=12)
+        after = timezone.now()
+        expected_min = before + timedelta(days=365)
+        expected_max = after + timedelta(days=365)
+        self.assertIsNotNone(result['expires_at'])
+        self.assertGreaterEqual(result['expires_at'], expected_min)
+        self.assertLessEqual(result['expires_at'], expected_max)
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_passes_note_and_adult(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{
+            "status": "true",
+            "user_id": "5007",
+            "url": "http://cdn.example.com/get.php?username=u&password=p"
+        }]
+        mock_response.text = '[{"status":"true","user_id":"5007"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.create(pack_id=1, months=3, note='test client', adult=True, country='FR')
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['notes'], 'test client')
+        self.assertEqual(params['adult'], 1)
+        self.assertEqual(params['country'], 'FR')
+
+    @patch('api.providers.promax.requests.get')
+    def test_create_provider_error_response(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"status": "false", "message": "Invalid pack ID"}]
+        mock_response.text = '[{"status":"false","message":"Invalid pack ID"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        with self.assertRaises(ProviderAPIError) as ctx:
+            self.adapter.create(pack_id=999, months=1)
+        self.assertIn('Invalid pack ID', str(ctx.exception))
+
+    @patch('api.providers.promax.requests.get')
+    def test_get_bouquets_returns_list(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "3859", "name": "Dz"},
+            {"id": "3857", "name": "Fr"},
+            {"id": "1", "name": "NL LIST"},
+        ]
+        mock_response.text = '[{"id":"3859","name":"Dz"},{"id":"3857","name":"Fr"},{"id":"1","name":"NL LIST"}]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        bouquets = self.adapter.get_bouquets()
+        self.assertEqual(len(bouquets), 3)
+        self.assertEqual(bouquets[0]['id'], '3859')
+        self.assertEqual(bouquets[1]['name'], 'Fr')
+
+    @patch('api.providers.promax.requests.get')
+    def test_get_bouquets_sends_correct_params(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+        mock_response.text = '[]'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        self.adapter.get_bouquets()
+        params = mock_get.call_args.kwargs['params']
+        self.assertEqual(params['action'], 'bouquet')
+        self.assertEqual(params['public'], 1)
+        self.assertIn('api_key', params)
