@@ -1,3 +1,4 @@
+import urllib.parse
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from cryptography.fernet import Fernet
@@ -26,6 +27,16 @@ def decrypt_password(ciphertext) -> str:
         return ""
     f = get_fernet()
     return f.decrypt(ciphertext).decode()
+
+
+def extract_base_url(m3u_url: str) -> str:
+    if not m3u_url:
+        return ''
+    try:
+        parsed = urllib.parse.urlparse(m3u_url)
+        return f"{parsed.scheme}://{parsed.netloc}"
+    except Exception:
+        return ''
 
 
 def build_m3u_url(username: str, password: str, dns: str = None, port: int = None) -> str:

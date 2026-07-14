@@ -1,7 +1,7 @@
 from decimal import Decimal
 from rest_framework import serializers
 from .models import CustomUser, Category, Product, ProductVariant, Order, Credential, CreditTransaction
-from .utils import decrypt_password
+from .utils import decrypt_password, extract_base_url
 
 
 class LoginSerializer(serializers.Serializer):
@@ -128,13 +128,14 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 class CredentialSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='streaming_username')
     password = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField()
     provider_adapter_key = serializers.SerializerMethodField()
     credential_data = serializers.SerializerMethodField()
     provider_config = serializers.SerializerMethodField()
 
     class Meta:
         model = Credential
-        fields = ['id', 'username', 'password', 'dns_domain', 'm3u_url',
+        fields = ['id', 'username', 'password', 'url', 'dns_domain', 'm3u_url',
                   'expires_at', 'provider_adapter_key', 'credential_data',
                   'provider_config', 'product_id']
 
@@ -146,6 +147,9 @@ class CredentialSerializer(serializers.ModelSerializer):
     def get_password(self, obj):
         return decrypt_password(obj.encrypted_password)
 
+    def get_url(self, obj):
+        return extract_base_url(obj.m3u_url)
+
     def get_provider_adapter_key(self, obj):
         if obj.order.product and obj.order.product.provider:
             return obj.order.product.provider.adapter_key
@@ -156,6 +160,7 @@ class CredentialSerializer(serializers.ModelSerializer):
         decrypted = decrypt_password(obj.encrypted_password)
         if decrypted:
             data['secret_password'] = decrypted
+        data['url'] = extract_base_url(obj.m3u_url)
         return data
 
     def get_provider_config(self, obj):
@@ -192,6 +197,7 @@ class AddPlaylistsSerializer(serializers.Serializer):
 
 class CredentialListSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='streaming_username')
+    url = serializers.SerializerMethodField()
     provider_adapter_key = serializers.SerializerMethodField()
     product_name = serializers.CharField(source='order.product_name_at_purchase')
     order_uuid = serializers.UUIDField(source='order.uuid')
@@ -201,7 +207,7 @@ class CredentialListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Credential
-        fields = ['id', 'username', 'expires_at', 'is_revoked',
+        fields = ['id', 'username', 'url', 'expires_at', 'is_revoked',
                   'provider_adapter_key', 'product_name', 'order_uuid', 'order_created',
                   'credential_data', 'provider_config', 'created_at', 'product_id']
 
@@ -220,7 +226,11 @@ class CredentialListSerializer(serializers.ModelSerializer):
         decrypted = decrypt_password(obj.encrypted_password)
         if decrypted:
             data['secret_password'] = decrypted
+        data['url'] = extract_base_url(obj.m3u_url)
         return data
+
+    def get_url(self, obj):
+        return extract_base_url(obj.m3u_url)
 
     def get_provider_config(self, obj):
         try:
