@@ -8,7 +8,7 @@ from django.urls import path
 from django.contrib import messages
 from django.template.response import TemplateResponse
 from .models import CustomUser, Provider, Category, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
-from .device_services import check_device, add_playlists, get_credential_for_user
+from .device_services import check_device, get_credential_for_user
 from .providers import get_adapter_for_provider, ADAPTER_REGISTRY
 
 
@@ -209,7 +209,7 @@ class CredentialAdmin(admin.ModelAdmin):
     search_fields = ('streaming_username', 'external_username')
     readonly_fields = ('order', 'streaming_username', 'encrypted_password', 'dns_domain', 'm3u_url', 'data', 'expires_at', 'created_at')
     exclude = ('external_username',)
-    actions = ['toggle_revoke', 'check_device', 'admin_add_playlist']
+    actions = ['toggle_revoke', 'check_device']
 
     def has_add_permission(self, request):
         return False
@@ -235,34 +235,6 @@ class CredentialAdmin(admin.ModelAdmin):
             except Exception as e:
                 results.append(f"{mac}: Error - {e}")
         self.message_user(request, '\n'.join(results), messages.SUCCESS)
-
-    @admin.action(description='Add playlist URL to credential')
-    def admin_add_playlist(self, request, queryset):
-        if 'apply' in request.POST:
-            url = request.POST.get('playlist_url', '').strip()
-            name = request.POST.get('playlist_name', 'Admin Playlist').strip()
-            if not url:
-                self.message_user(request, 'Playlist URL is required.', messages.ERROR)
-                return
-            results = []
-            for cred in queryset:
-                mac = cred.streaming_username or cred.external_username
-                try:
-                    adapter = get_adapter_for_provider(cred.order.product.provider)
-                    data = adapter.add_playlists(mac, [{'url': url, 'name': name}])
-                    results.append(f"{mac}: Added")
-                except NotImplementedError:
-                    results.append(f"{mac}: Playlists not supported")
-                except Exception as e:
-                    results.append(f"{mac}: Error - {e}")
-            self.message_user(request, '\n'.join(results), messages.SUCCESS)
-            return redirect(request.get_full_path())
-
-        return TemplateResponse(request, 'admin/admin_add_playlist.html', {
-            'credentials': queryset,
-            'title': 'Add Playlist to Credentials',
-        })
-
 
 @admin.register(CreditTransaction)
 class CreditTransactionAdmin(admin.ModelAdmin):

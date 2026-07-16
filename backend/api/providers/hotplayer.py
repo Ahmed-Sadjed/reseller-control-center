@@ -13,7 +13,8 @@ class HotPlayerAdapter(BaseProviderAdapter):
         super().__init__(provider)
         self.api_url = provider.api_endpoint
         self.api_key = provider.get_token()
-        self.timeout = provider.extra_config.get('timeout', 30)
+        timeout = provider.extra_config.get('timeout', 30)
+        self.timeout = (timeout / 2, timeout)
 
     @property
     def capabilities(self) -> set:
@@ -111,10 +112,4 @@ class HotPlayerAdapter(BaseProviderAdapter):
         logger.info("HotPlayer check_device: mac=%s", mac)
         return self._request('GET', f'/check-device/{mac}')
 
-    def add_playlists(self, mac: str, playlists: list) -> dict:
-        logger.info("HotPlayer add_playlists: mac=%s, count=%s", mac, len(playlists))
-        return self._request('POST', f'/add-playlists/{mac}', json=playlists)
 
-    def delete_playlists(self, mac: str) -> dict:
-        logger.info("HotPlayer delete_playlists: mac=%s", mac)
-        return self._request('DELETE', f'/delete-playlists/{mac}')

@@ -23,11 +23,11 @@ urlpatterns = [
          views.CredentialDeviceActivateView.as_view(), name='credential-device-activate'),
     path('credentials/<int:credential_id>/device/refund/',
          views.CredentialDeviceRefundView.as_view(), name='credential-device-refund'),
-    path('credentials/<int:credential_id>/device/playlists/',
-         views.CredentialDevicePlaylistsView.as_view(), name='credential-device-playlists'),
     path('check-device/', views.CheckDeviceView.as_view(), name='check-device'),
-    path('device/playlists/', views.DevicePlaylistsByMacView.as_view(), name='device-playlists'),
     path('golden-templates/', views.GoldenTemplatesView.as_view(), name='golden-templates'),
     path('golden-domains/', views.GoldenDomainsView.as_view(), name='golden-domains'),
     path('promax-bouquets/', views.PromaxBouquetsView.as_view(), name='promax-bouquets'),
+    # DEV ONLY — remove before production deploy
+    path('dev/toggle-mock/', views.ToggleMockView.as_view(), name='toggle-mock'),
+    path('dev/mock-status/', views.MockStatusView.as_view(), name='mock-status'),
 ]

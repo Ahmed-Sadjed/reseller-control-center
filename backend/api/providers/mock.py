@@ -83,23 +83,5 @@ class MockProviderAdapter(BaseProviderAdapter):
             'mock': True,
         }
 
-    def add_playlists(self, mac: str, playlists: list) -> dict:
-        if random.random() < self.fail_rate:
-            raise Exception(f"Simulated provider failure: add_playlists mac={mac}")
-        return {
-            'status': 'success',
-            'playlists_added': len(playlists),
-            'mock': True,
-        }
-
-    def delete_playlists(self, mac: str) -> dict:
-        if random.random() < self.fail_rate:
-            raise Exception(f"Simulated provider failure: delete_playlists mac={mac}")
-        return {
-            'status': 'success',
-            'message': 'All playlists deleted',
-            'mock': True,
-        }
-
     def get_templates(self) -> list:
         return []

@@ -182,19 +182,6 @@ class DeviceActivateSerializer(serializers.Serializer):
     extend = serializers.BooleanField(default=False)
 
 
-class PlaylistEntrySerializer(serializers.Serializer):
-    url = serializers.URLField()
-    name = serializers.CharField(max_length=100, required=False, default='Playlist')
-
-
-class AddPlaylistsSerializer(serializers.Serializer):
-    playlists = serializers.ListField(
-        child=PlaylistEntrySerializer(),
-        min_length=1,
-        max_length=5,
-    )
-
-
 class CredentialListSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='streaming_username')
     url = serializers.SerializerMethodField()
@@ -223,9 +210,6 @@ class CredentialListSerializer(serializers.ModelSerializer):
 
     def get_credential_data(self, obj):
         data = dict(obj.data) if obj.data else {}
-        decrypted = decrypt_password(obj.encrypted_password)
-        if decrypted:
-            data['secret_password'] = decrypted
         data['url'] = extract_base_url(obj.m3u_url)
         return data
 

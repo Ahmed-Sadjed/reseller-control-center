@@ -59,7 +59,6 @@ def fulfill_sync(order: Order, provider=None, mac='', note='', username='', pass
     if provider is None:
         provider = get_adapter_for_provider(order.product.provider)
     credentials = []
-    failed_at = None
     failure_reason = None
 
     for idx in range(order.quantity):
@@ -75,18 +74,15 @@ def fulfill_sync(order: Order, provider=None, mac='', note='', username='', pass
                 template_id=template_id,
                 dns_domain_id=dns_domain_id,
             )
-            # Separate secrets from non-secrets in credentials dict
             cred_data = result.get('credentials', {})
             non_secret_data = {}
             secret_password = ''
             for key, value in cred_data.items():
                 if key.startswith('secret_'):
-                    # Extract secret — currently only secret_password
                     secret_password = value
                 else:
                     non_secret_data[key] = value
 
-            # Build legacy fields for backward compatibility
             external_username = result.get('external_id', '')
             streaming_username = cred_data.get('username', cred_data.get('mac', external_username))
 
@@ -102,31 +98,52 @@ def fulfill_sync(order: Order, provider=None, mac='', note='', username='', pass
             )
             credentials.append(cred)
         except Exception as e:
-            failed_at = idx + 1
             failure_reason = str(e)
             break
 
-    if failed_at is None:
+    if failure_reason is None:
         order.status = Order.Status.COMPLETED
         order.save()
         return credentials, None
-    else:
-        compensate_order(order, failure_reason, credentials)
-        return [], failure_reason
+
+    if credentials:
+        processed = len(credentials)
+        total_original = order.quantity
+        with transaction.atomic():
+            refund_amount = order.unit_price_at_purchase * Decimal(str(total_original - processed))
+            reseller = CustomUser.objects.select_for_update().get(id=order.reseller_id)
+            reseller.credit_balance += refund_amount
+            reseller.save()
+            CreditTransaction.objects.create(
+                reseller=reseller,
+                delta=refund_amount,
+                balance_after=reseller.credit_balance,
+                actor=CreditTransaction.Actor.SYSTEM,
+                reason=f"Partial refund for {total_original - processed} unprocessed item(s) in order #{order.uuid}",
+                reference_order=order,
+            )
+            order.quantity = processed
+            order.total_credits = order.unit_price_at_purchase * Decimal(str(processed))
+            order.status = Order.Status.COMPLETED
+            order.failure_reason = f"Partial fulfillment: processed {processed}/{total_original} items. Error on item {processed + 1}: {failure_reason}"
+            order.save()
+        return credentials, failure_reason
+
+    compensate_order(order, failure_reason)
+    return [], failure_reason
 
 
-def compensate_order(order: Order, failure_reason: str, successful_credentials=None):
+def compensate_order(order: Order, failure_reason: str):
     with transaction.atomic():
         for cred in Credential.objects.filter(order=order):
             QuarantinedCredential.objects.create(
                 order=order,
                 username=cred.external_username,
                 encrypted_password=cred.encrypted_password,
-                provider_response=cred.data,  # Reuse data (no secrets) in provider_response
+                provider_response=cred.data,
                 reason=f"Order failed: {failure_reason}",
             )
             cred.delete()
-        # CRITICAL: select_for_update() to prevent race conditions during refunds
         reseller = CustomUser.objects.select_for_update().get(id=order.reseller_id)
         reseller.credit_balance += order.total_credits
         reseller.save()

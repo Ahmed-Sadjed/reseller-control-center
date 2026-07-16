@@ -1,9 +1,22 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/axios';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mockEnabled, setMockEnabled] = useState(false);
+
+  useEffect(() => {
+    api.get('/dev/mock-status/').then(r => setMockEnabled(r.data.mock_enabled)).catch(() => {});
+  }, []);
+
+  const toggleMock = async () => {
+    const next = !mockEnabled;
+    await api.post('/dev/toggle-mock/', { enabled: next });
+    setMockEnabled(next);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -28,11 +41,17 @@ export default function Layout({ children }) {
               <Link to="/orders" className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm">
                 Orders
               </Link>
-              <Link to="/devices" className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm">
-                Devices
-              </Link>
             </div>
             <div className="flex items-center space-x-4">
+              <label className="flex items-center space-x-1 text-xs text-gray-500 cursor-pointer select-none">
+                <span>Mock</span>
+                <input
+                  type="checkbox"
+                  checked={mockEnabled}
+                  onChange={toggleMock}
+                  className="rounded"
+                />
+              </label>
               {user && (
                 <span className="text-sm text-gray-600">
                   {user.username}

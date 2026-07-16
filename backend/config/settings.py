@@ -68,6 +68,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
+        'CONN_MAX_AGE': int(os.environ.get('CONN_MAX_AGE', 60)),
     }
 }
 
@@ -144,7 +145,7 @@ SPECTACULAR_SETTINGS = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.environ.get('JWT_ACCESS_TOKEN_LIFETIME', 60))),
     'REFRESH_TOKEN_LIFETIME': timedelta(minutes=int(os.environ.get('JWT_REFRESH_TOKEN_LIFETIME', 1440))),
-    'ROTATE_REFRESH_TOKENS': False,
+    'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
@@ -181,7 +182,13 @@ CACHES = {
 
 FERNET_KEY = os.environ.get('FERNET_KEY', '')
 
-
+if not FERNET_KEY:
+    import warnings
+    warnings.warn(
+        'FERNET_KEY is not set. Password encryption/decryption will fail in production.',
+        RuntimeWarning,
+        stacklevel=2,
+    )
 
 RATE_LIMIT_PURCHASE = int(os.environ.get('RATE_LIMIT_PURCHASE', 5))
 ASYNC_THRESHOLD = int(os.environ.get('ASYNC_THRESHOLD', 10))

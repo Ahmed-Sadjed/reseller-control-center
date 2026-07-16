@@ -19,11 +19,27 @@ ADAPTER_REGISTRY = {
 }
 
 def get_adapter_for_provider(provider_instance):
-    if os.getenv('USE_MOCK_PROVIDER', 'False').lower() == 'true':
+    from django.conf import settings
+    from django.core.cache import cache
+
+    # DEV ONLY: frontend mock toggle checked before env vars
+    if cache.get('dev_mock_enabled'):
         return MockProviderAdapter(provider=provider_instance)
-    
+
+    use_mock = os.getenv('USE_MOCK_PROVIDER', 'False').lower() == 'true'
+
+    if use_mock:
+        return MockProviderAdapter(provider=provider_instance)
+
+    if settings.DEBUG and not os.getenv('ALLOW_REAL_IN_DEBUG', 'False').lower() == 'true':
+        import logging
+        logging.getLogger(__name__).warning(
+            "DEBUG=True and ALLOW_REAL_IN_DEBUG is not set — falling back to MockProviderAdapter"
+        )
+        return MockProviderAdapter(provider=provider_instance)
+
     adapter_class = ADAPTER_REGISTRY.get(provider_instance.adapter_key)
     if not adapter_class:
         raise ValueError(f"No adapter found for key: {provider_instance.adapter_key}")
-    
+
     return adapter_class(provider=provider_instance)

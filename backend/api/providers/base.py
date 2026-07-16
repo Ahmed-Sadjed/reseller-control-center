@@ -99,8 +99,4 @@ class BaseProviderAdapter(ABC):
     def check_device(self, mac: str) -> dict:
         raise NotImplementedError(f"Device check not supported by {self.provider.name}")
 
-    def add_playlists(self, mac: str, playlists: list) -> dict:
-        raise NotImplementedError(f"Playlist management not supported by {self.provider.name}")
 
-    def delete_playlists(self, mac: str) -> dict:
-        raise NotImplementedError(f"Playlist deletion not supported by {self.provider.name}")

@@ -234,6 +234,8 @@ class Credential(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['order']),
+            models.Index(fields=['streaming_username']),
+            models.Index(fields=['order', 'is_revoked']),
         ]
 
     def __str__(self):

@@ -15,7 +15,8 @@ class GoldPanelAdapter(BaseProviderAdapter):
         self.api_key = provider.get_token()
         self.dns_domain = provider.extra_config.get('dns_domain', '8k.cms-only.ru')
         self.port = provider.extra_config.get('port', 8080)
-        self.timeout = provider.extra_config.get('timeout', 30)
+        timeout = provider.extra_config.get('timeout', 30)
+        self.timeout = (timeout / 2, timeout)
 
     @property
     def capabilities(self) -> set:

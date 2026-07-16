@@ -1,4 +1,5 @@
 import re
+import logging
 from hashlib import md5
 from django.conf import settings
 from django.core.cache import cache
@@ -14,13 +15,15 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+logger = logging.getLogger(__name__)
+
 from .models import Product, ProductVariant, Order, Credential, Category, Provider
 from .providers import get_adapter_for_provider
 from .serializers import (
     UserProfileSerializer, CategorySerializer, ProductSerializer,
     PurchaseSerializer, OrderListSerializer, OrderDetailSerializer,
     CredentialSerializer, CredentialListSerializer, OrderStatusSerializer,
-    DeviceActivateSerializer, AddPlaylistsSerializer,
+    DeviceActivateSerializer,
 )
 from .services import reserve_phase, fulfill_sync, check_idempotency, InsufficientCredits
 from .tasks import fulfill_order_async
@@ -28,9 +31,6 @@ from .device_services import (
     activate_device as device_activate,
     check_device as device_check,
     check_device_by_mac,
-    add_playlists as device_add_playlists,
-    add_playlists_by_mac,
-    delete_playlists as device_delete_playlists,
     refund_device as device_refund,
     InsufficientCredits as DeviceInsufficientCredits,
     NoMatchingVariant,
@@ -52,14 +52,15 @@ class RefreshView(TokenRefreshView):
 
 class LogoutView(APIView):
     def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({'error': 'refresh token required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            refresh_token = request.data.get('refresh')
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception:
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception as e:
+            logger.warning("Logout blacklist failed for user %s: %s", request.user, str(e))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MeView(APIView):
@@ -178,14 +179,18 @@ class PurchaseView(APIView):
                 order, mac=mac, note=note, username=username, password=password,
                 template_id=template_id, dns_domain_id=dns_domain_id,
             )
-            if failure:
+            if not credentials and failure:
                 return Response({'error': failure}, status=status.HTTP_400_BAD_REQUEST)
             cred_serializer = CredentialSerializer(credentials, many=True)
-            return Response({
+            response_data = {
                 'order_id': order.uuid,
                 'status': order.status,
                 'credentials': cred_serializer.data,
-            }, status=status.HTTP_201_CREATED)
+            }
+            if failure:
+                response_data['partial_failure'] = True
+                response_data['failure_reason'] = failure
+            return Response(response_data, status=status.HTTP_201_CREATED)
         else:
             fulfill_order_async.delay(
                 order.id, mac=mac, note=note, username=username, password=password,
@@ -424,29 +429,6 @@ class CredentialDeviceRefundView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CredentialDevicePlaylistsView(APIView):
-    def post(self, request, credential_id):
-        serializer = AddPlaylistsSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            data = device_add_playlists(credential_id, request.user, serializer.validated_data['playlists'])
-            return Response(data)
-        except NotImplementedError as e:
-            return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, credential_id):
-        try:
-            data = device_delete_playlists(credential_id, request.user)
-            return Response(data)
-        except NotImplementedError as e:
-            return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
 class CheckDeviceView(APIView):
     def post(self, request):
         mac = request.data.get('mac', '').strip()
@@ -456,24 +438,6 @@ class CheckDeviceView(APIView):
             return Response({'error': 'Invalid MAC address. Use format XX:XX:XX:XX:XX:XX'}, status=status.HTTP_400_BAD_REQUEST)
 
         data = check_device_by_mac(mac.upper(), request.user)
-        return Response(data)
-
-
-class DevicePlaylistsByMacView(APIView):
-    def post(self, request):
-        mac = request.data.get('mac', '').strip().upper()
-        if not mac:
-            return Response({'error': 'MAC address is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not MAC_REGEX.match(mac):
-            return Response({'error': 'Invalid MAC address format.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = AddPlaylistsSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        data = add_playlists_by_mac(mac, serializer.validated_data['playlists'])
-        if 'error' in data:
-            return Response(data, status=status.HTTP_400_BAD_REQUEST)
         return Response(data)
 
 
@@ -515,6 +479,20 @@ class GoldenDomainsView(APIView):
             return Response({'error': 'Adapter does not support domains.'}, status=status.HTTP_501_NOT_IMPLEMENTED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# DEV ONLY — remove before production deploy
+class ToggleMockView(APIView):
+    def post(self, request):
+        enabled = request.data.get('enabled', False)
+        cache.set('dev_mock_enabled', bool(enabled), 86400)
+        return Response({'mock_enabled': bool(enabled)})
+
+
+# DEV ONLY — remove before production deploy
+class MockStatusView(APIView):
+    def get(self, request):
+        return Response({'mock_enabled': cache.get('dev_mock_enabled', False)})
 
 
 class PromaxBouquetsView(APIView):

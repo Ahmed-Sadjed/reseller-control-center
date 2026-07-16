@@ -39,7 +39,8 @@ class PromaxAdapter(BaseProviderAdapter):
         self.api_url = provider.api_endpoint
         raw_key = provider.get_token()
         self.api_key = urllib.parse.unquote(raw_key)
-        self.timeout = provider.extra_config.get('timeout', 30)
+        timeout = provider.extra_config.get('timeout', 30)
+        self.timeout = (timeout / 2, timeout)
 
     @property
     def capabilities(self) -> set:
@@ -66,6 +67,7 @@ class PromaxAdapter(BaseProviderAdapter):
             logger.info("Promax create with params: %s", log_params)
             response = requests.get(self.api_url, params=params, timeout=self.timeout)
             logger.info("Promax response: %s %s", response.status_code, response.text[:600])
+            response.raise_for_status()
             data = response.json()
             if isinstance(data, list):
                 data = data[0] if data else {}
@@ -73,6 +75,8 @@ class PromaxAdapter(BaseProviderAdapter):
             raise ProviderTimeoutError(f"Promax timeout: {e}")
         except requests.ConnectionError as e:
             raise ProviderTimeoutError(f"Promax connection error: {e}")
+        except requests.HTTPError as e:
+            raise ProviderAPIError(f"Promax HTTP {response.status_code}: {response.text[:500]}")
         except ValueError as e:
             raise ProviderInvalidResponseError(f"Promax invalid JSON: {e}")
 
