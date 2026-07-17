@@ -133,6 +133,22 @@ class Product(models.Model):
         options={'quality': 85}
     )
     is_active = models.BooleanField(default=True)
+    is_manual = models.BooleanField(
+        default=False,
+        help_text='True if this product requires manual credential assignment (no API).',
+    )
+
+    class CredentialType(models.TextChoices):
+        USERNAME_PASSWORD = 'username_password', 'Username + Password'
+        SINGLE_CODE = 'single_code', 'Single Code'
+
+    credential_type = models.CharField(
+        max_length=20,
+        choices=CredentialType.choices,
+        null=True,
+        blank=True,
+        help_text='Required for manual products. Defines the credential input format.',
+    )
     search_vector = SearchVectorField(null=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

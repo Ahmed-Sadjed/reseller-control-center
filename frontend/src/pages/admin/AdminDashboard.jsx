@@ -1,0 +1,275 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import AdminLayout from '../../components/AdminLayout';
+import api from '../../lib/axios';
+
+function formatNumber(n) {
+  if (n == null) return '0';
+  return Number(n).toLocaleString('en-US');
+}
+
+function formatCredits(n) {
+  if (n == null) return '0.00';
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState(null);
+  const [topResellers, setTopResellers] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [revenueData, setRevenueData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/dashboard/stats/'),
+      api.get('/dashboard/top-resellers/?limit=5'),
+      api.get('/dashboard/recent-activity/?limit=10'),
+      api.get('/dashboard/revenue-chart/?months=12'),
+    ])
+      .then(([statsRes, topRes, activityRes, revenueRes]) => {
+        setStats(statsRes.data);
+        setTopResellers(topRes.data);
+        setRecentActivity(activityRes.data);
+        setRevenueData(revenueRes.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="admin-loading">
+          <div className="admin-spinner"></div>
+          Loading dashboard...
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Simple inline SVG chart
+  const maxRevenue = Math.max(...revenueData.map(d => Number(d.revenue)), 1);
+  const chartWidth = 600;
+  const chartHeight = 200;
+  const padding = 30;
+  const points = revenueData.map((d, i) => {
+    const x = padding + (i / Math.max(revenueData.length - 1, 1)) * (chartWidth - padding * 2);
+    const y = chartHeight - padding - (Number(d.revenue) / maxRevenue) * (chartHeight - padding * 2);
+    return { x, y, ...d };
+  });
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = linePath + ` L ${points[points.length - 1]?.x || 0} ${chartHeight - padding} L ${points[0]?.x || 0} ${chartHeight - padding} Z`;
+
+  return (
+    <AdminLayout>
+      <div style={{ marginBottom: 8 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>
+          Dashboard Overview
+        </h1>
+        <p style={{ fontSize: 14, color: '#64748b' }}>
+          Monitor your platform at a glance
+        </p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="admin-stats-grid">
+        <div className="admin-stat-card purple">
+          <div className="admin-stat-label">Total Resellers</div>
+          <div className="admin-stat-value">{formatNumber(stats?.total_resellers)}</div>
+          <div className="admin-stat-icon">👥</div>
+          <div style={{ fontSize: 12, color: '#10b981', marginTop: 4 }}>
+            {formatNumber(stats?.active_resellers)} active
+          </div>
+        </div>
+        <div className="admin-stat-card blue">
+          <div className="admin-stat-label">Total Orders</div>
+          <div className="admin-stat-value">{formatNumber(stats?.total_orders)}</div>
+          <div className="admin-stat-icon">📦</div>
+          <div style={{ fontSize: 12, color: '#10b981', marginTop: 4 }}>
+            {formatNumber(stats?.completed_orders)} completed
+          </div>
+        </div>
+        <div className="admin-stat-card green">
+          <div className="admin-stat-label">Revenue (Credits)</div>
+          <div className="admin-stat-value">{formatCredits(stats?.total_revenue)}</div>
+          <div className="admin-stat-icon">💰</div>
+        </div>
+        <div className="admin-stat-card amber">
+          <div className="admin-stat-label">Available Codes</div>
+          <div className="admin-stat-value">{formatNumber(stats?.available_credentials)}</div>
+          <div className="admin-stat-icon">🔑</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+            of {formatNumber(stats?.total_credentials)} total
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
+        {/* Revenue Chart */}
+        <div className="admin-card">
+          <div className="admin-card-header">
+            <div className="admin-card-title">📈 Revenue Trend</div>
+          </div>
+          <div className="admin-card-body" style={{ padding: 16 }}>
+            {revenueData.length > 0 ? (
+              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 200 }}>
+                <defs>
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+                {/* Grid lines */}
+                {[0.25, 0.5, 0.75].map(f => (
+                  <line
+                    key={f}
+                    x1={padding}
+                    y1={chartHeight - padding - f * (chartHeight - padding * 2)}
+                    x2={chartWidth - padding}
+                    y2={chartHeight - padding - f * (chartHeight - padding * 2)}
+                    stroke="#e2e8f0"
+                    strokeDasharray="4"
+                  />
+                ))}
+                {/* Area */}
+                <path d={areaPath} fill="url(#areaGrad)" />
+                {/* Line */}
+                <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                {/* Dots */}
+                {points.map((p, i) => (
+                  <circle key={i} cx={p.x} cy={p.y} r="4" fill="#6366f1" stroke="#fff" strokeWidth="2" />
+                ))}
+                {/* Labels */}
+                {points.filter((_, i) => i % Math.max(1, Math.floor(points.length / 6)) === 0).map((p, i) => (
+                  <text key={i} x={p.x} y={chartHeight - 8} textAnchor="middle" fontSize="10" fill="#94a3b8">
+                    {p.month?.slice(5)}
+                  </text>
+                ))}
+              </svg>
+            ) : (
+              <div className="admin-empty">
+                <div className="admin-empty-icon">📊</div>
+                <div className="admin-empty-text">No revenue data yet</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top Resellers */}
+        <div className="admin-card">
+          <div className="admin-card-header">
+            <div className="admin-card-title">🏆 Top Resellers</div>
+            <Link to="/admin/resellers" className="admin-btn admin-btn-secondary admin-btn-sm">
+              View All
+            </Link>
+          </div>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Username</th>
+                  <th>Revenue</th>
+                  <th>Orders</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topResellers.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8', padding: 32 }}>
+                      No resellers yet
+                    </td>
+                  </tr>
+                ) : (
+                  topResellers.map((r, i) => (
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 600, color: '#6366f1' }}>{i + 1}</td>
+                      <td>
+                        <Link to={`/admin/resellers/${r.id}`} style={{ color: '#1e293b', fontWeight: 500, textDecoration: 'none' }}>
+                          {r.username}
+                        </Link>
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{formatCredits(r.total_revenue)}</td>
+                      <td>{formatNumber(r.order_count)}</td>
+                      <td>
+                        <span className={`admin-badge ${r.is_active ? 'green' : 'red'}`}>
+                          {r.is_active ? '● Active' : '● Inactive'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="admin-card" style={{ marginBottom: 28 }}>
+        <div className="admin-card-header">
+          <div className="admin-card-title">⏳ Recent Activity</div>
+        </div>
+        <div className="admin-card-body" style={{ padding: '8px 24px' }}>
+          {recentActivity.length === 0 ? (
+            <div className="admin-empty">
+              <div className="admin-empty-icon">📭</div>
+              <div className="admin-empty-text">No activity yet</div>
+            </div>
+          ) : (
+            recentActivity.map((a, i) => (
+              <div key={i} className="admin-activity-item">
+                <div className={`admin-activity-icon ${a.type}`}>
+                  {a.type === 'order' ? '📦' : '💳'}
+                </div>
+                <div className="admin-activity-body">
+                  <div className="admin-activity-text">{a.description}</div>
+                  <div className="admin-activity-meta">
+                    {a.user} · {a.amount != null ? `${Number(a.amount) >= 0 ? '+' : ''}${formatCredits(a.amount)} credits` : ''}
+                    {a.status ? ` · ${a.status}` : ''}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                  {timeAgo(a.created_at)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <div className="admin-card-title">🚀 Quick Actions</div>
+        </div>
+        <div className="admin-card-body">
+          <div className="admin-actions">
+            <Link to="/admin/resellers" className="admin-btn admin-btn-primary">
+              ➕ Add Reseller
+            </Link>
+            <Link to="/admin/products" className="admin-btn admin-btn-secondary">
+              📦 Manage Products
+            </Link>
+            <Link to="/admin/codes" className="admin-btn admin-btn-secondary">
+              🔑 View Codes
+            </Link>
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}

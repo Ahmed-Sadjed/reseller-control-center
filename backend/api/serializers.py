@@ -164,6 +164,23 @@ class CredentialSerializer(serializers.ModelSerializer):
         return data
 
     def get_provider_config(self, obj):
+        # Manual product: return a display schema based on credential type
+        data = dict(obj.data) if obj.data else {}
+        if data.get('manual'):
+            cred_type = data.get('credential_type', '')
+            if cred_type == 'username_password':
+                return {
+                    'schema': [
+                        {'key': 'username', 'label': 'USERNAME'},
+                        {'key': 'secret_password', 'label': 'PASSWORD', 'secret': True},
+                    ]
+                }
+            elif cred_type == 'single_code':
+                return {
+                    'schema': [
+                        {'key': 'code', 'label': 'ACTIVATION CODE'},
+                    ]
+                }
         try:
             provider = obj.order.product.provider
             if provider and provider.extra_config:

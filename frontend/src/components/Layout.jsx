@@ -41,6 +41,11 @@ export default function Layout({ children }) {
               <Link to="/orders" className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm">
                 Orders
               </Link>
+              {user?.role === 'ADMIN' && (
+                <Link to="/admin" className="text-indigo-600 hover:text-indigo-800 px-3 py-2 text-sm font-semibold">
+                  ⚡ Admin Panel
+                </Link>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <label className="flex items-center space-x-1 text-xs text-gray-500 cursor-pointer select-none">

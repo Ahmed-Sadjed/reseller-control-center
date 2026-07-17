@@ -56,6 +56,13 @@ def reserve_phase(reseller: CustomUser, variant, quantity: int, idempotency_key:
 
 
 def fulfill_sync(order: Order, provider=None, mac='', note='', username='', password='', template_id=None, dns_domain_id=None):
+    product = order.product
+
+    # ── Manual product flow: assign pre-loaded credentials ──
+    if product.is_manual:
+        return _fulfill_manual(order)
+
+    # ── API-driven product flow: call provider adapter ──
     if provider is None:
         provider = get_adapter_for_provider(order.product.provider)
     credentials = []
@@ -126,6 +133,94 @@ def fulfill_sync(order: Order, provider=None, mac='', note='', username='', pass
             order.total_credits = order.unit_price_at_purchase * Decimal(str(processed))
             order.status = Order.Status.COMPLETED
             order.failure_reason = f"Partial fulfillment: processed {processed}/{total_original} items. Error on item {processed + 1}: {failure_reason}"
+            order.save()
+        return credentials, failure_reason
+
+    compensate_order(order, failure_reason)
+    return [], failure_reason
+
+
+def _fulfill_manual(order: Order):
+    """
+    Fulfill an order for a manual product by assigning pre-loaded
+    ManualProductCredentials from the dashboard inventory.
+    """
+    from dashboard.models import ManualProductCredential
+
+    credentials = []
+    failure_reason = None
+
+    for idx in range(order.quantity):
+        with transaction.atomic():
+            manual_cred = (
+                ManualProductCredential.objects
+                .filter(product=order.product, status='available')
+                .select_for_update(skip_locked=True)
+                .first()
+            )
+
+            if not manual_cred:
+                failure_reason = f"Product '{order.product.name}' is out of stock (no available credentials)."
+                break
+
+            # Mark the manual credential as used
+            manual_cred.status = ManualProductCredential.Status.USED
+            manual_cred.assigned_to = order.reseller
+            manual_cred.assigned_at = timezone.now()
+            manual_cred.used_at = timezone.now()
+            manual_cred.save()
+
+            # Build credential data based on type
+            cred_data = {'manual': True, 'credential_type': manual_cred.credential_type}
+            secret_password = ''
+            if manual_cred.credential_type == 'username_password':
+                cred_data['username'] = manual_cred.username
+                secret_password = manual_cred.password
+                streaming_username = manual_cred.username
+            else:
+                cred_data['code'] = manual_cred.code
+                streaming_username = manual_cred.code[:50]
+
+            if manual_cred.notes:
+                cred_data['notes'] = manual_cred.notes
+
+            cred = Credential.objects.create(
+                order=order,
+                external_username=f"manual-{manual_cred.id}",
+                streaming_username=streaming_username,
+                encrypted_password=encrypt_password(secret_password),
+                dns_domain='',
+                m3u_url='',
+                data=cred_data,
+                expires_at=manual_cred.expires_at,
+            )
+            credentials.append(cred)
+
+    if failure_reason is None:
+        order.status = Order.Status.COMPLETED
+        order.save()
+        return credentials, None
+
+    if credentials:
+        processed = len(credentials)
+        total_original = order.quantity
+        with transaction.atomic():
+            refund_amount = order.unit_price_at_purchase * Decimal(str(total_original - processed))
+            reseller = CustomUser.objects.select_for_update().get(id=order.reseller_id)
+            reseller.credit_balance += refund_amount
+            reseller.save()
+            CreditTransaction.objects.create(
+                reseller=reseller,
+                delta=refund_amount,
+                balance_after=reseller.credit_balance,
+                actor=CreditTransaction.Actor.SYSTEM,
+                reason=f"Partial fulfillment: {processed}/{total_original} credentials available for order #{order.uuid}",
+                reference_order=order,
+            )
+            order.quantity = processed
+            order.total_credits = order.unit_price_at_purchase * Decimal(str(processed))
+            order.status = Order.Status.COMPLETED
+            order.failure_reason = f"Partial: {processed}/{total_original} items fulfilled. {failure_reason}"
             order.save()
         return credentials, failure_reason
 

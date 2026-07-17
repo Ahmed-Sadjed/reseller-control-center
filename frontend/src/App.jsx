@@ -10,6 +10,14 @@ import ProcessingPage from './pages/ProcessingPage';
 import OrdersHistory from './pages/OrdersHistory';
 import LineManagerPage from './pages/LineManagerPage';
 
+// Admin pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminResellers from './pages/admin/AdminResellers';
+import AdminResellerDetail from './pages/admin/AdminResellerDetail';
+import AdminManualProducts from './pages/admin/AdminManualProducts';
+import AdminProductDetail from './pages/admin/AdminProductDetail';
+import AdminActivationCodes from './pages/admin/AdminActivationCodes';
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
@@ -21,6 +29,25 @@ function ProtectedRoute({ children }) {
   }
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="admin-loading">
+        <div className="admin-spinner"></div>
+        Loading...
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user.role !== 'ADMIN') {
+    return <Navigate to="/catalog" replace />;
   }
   return children;
 }
@@ -110,6 +137,57 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ── Admin Routes ── */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/resellers"
+            element={
+              <AdminRoute>
+                <AdminResellers />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/resellers/:id"
+            element={
+              <AdminRoute>
+                <AdminResellerDetail />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <AdminRoute>
+                <AdminManualProducts />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products/:id"
+            element={
+              <AdminRoute>
+                <AdminProductDetail />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/codes"
+            element={
+              <AdminRoute>
+                <AdminActivationCodes />
+              </AdminRoute>
+            }
+          />
+
           <Route path="/" element={<Navigate to="/catalog" replace />} />
           <Route path="*" element={<Navigate to="/catalog" replace />} />
         </Routes>

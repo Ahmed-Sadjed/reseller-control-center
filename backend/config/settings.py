@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'storages',
     'api.apps.ApiConfig',
+    'dashboard.apps.DashboardConfig',
 ]
 
 MIDDLEWARE = [

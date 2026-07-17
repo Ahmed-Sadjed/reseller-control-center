@@ -155,6 +155,7 @@ class ProductAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('name', 'category', 'provider', 'description')}),
         ('Media', {'fields': ('image', 'image_tag')}),
+        ('Manual Credentials', {'fields': ('is_manual', 'credential_type'), 'classes': ('collapse',)}),
         ('Status', {'fields': ('is_active',)}),
     )
     actions = ['archive_products']

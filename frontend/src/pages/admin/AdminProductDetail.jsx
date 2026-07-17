@@ -1,0 +1,363 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import AdminLayout from '../../components/AdminLayout';
+import api from '../../lib/axios';
+
+export default function AdminProductDetail() {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [credentials, setCredentials] = useState([]);
+  const [stats, setStats] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ count: 0, next: null, previous: null });
+
+  // Add modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ username: '', password: '', code: '', notes: '', expires_at: '' });
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [alert, setAlert] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('page', page);
+      if (statusFilter) params.set('status', statusFilter);
+      if (search) params.set('search', search);
+      const { data } = await api.get(`/dashboard/manual-products/${id}/?${params}`);
+      setProduct(data.product);
+      setCredentials(data.results || []);
+      setStats(data.stats || {});
+      setPagination({ count: data.count || 0, next: data.next, previous: data.previous });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, page, statusFilter, search]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(1); }, [statusFilter, search]);
+
+  const showAlertMsg = (msg, type = 'success') => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert(null), 4000);
+  };
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setAddLoading(true);
+    setAddError('');
+    try {
+      const payload = {
+        username: addForm.username,
+        password: addForm.password,
+        code: addForm.code,
+        notes: addForm.notes,
+        expires_at: addForm.expires_at || null,
+      };
+      await api.post(`/dashboard/manual-products/${id}/credentials/`, payload);
+      setShowAddModal(false);
+      setAddForm({ username: '', password: '', code: '', notes: '', expires_at: '' });
+      showAlertMsg('Credential added!');
+      fetchData();
+    } catch (err) {
+      const data = err.response?.data;
+      setAddError(typeof data === 'string' ? data : JSON.stringify(data));
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const handleDelete = async (credId) => {
+    if (!window.confirm('Delete this credential?')) return;
+    try {
+      await api.delete(`/dashboard/credentials/${credId}/`);
+      showAlertMsg('Credential deleted.');
+      fetchData();
+    } catch (err) {
+      showAlertMsg('Failed to delete.', 'error');
+    }
+  };
+
+  if (loading && !product) {
+    return (
+      <AdminLayout>
+        <div className="admin-loading">
+          <div className="admin-spinner"></div>
+          Loading product...
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  const isUP = product?.credential_type === 'username_password';
+
+  return (
+    <AdminLayout>
+      <Link to="/admin/products" style={{ fontSize: 14, color: '#6366f1', textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}>
+        ← Back to Products
+      </Link>
+
+      {alert && (
+        <div className={`admin-alert ${alert.type}`}>
+          {alert.type === 'success' ? '✅' : '⚠️'} {alert.msg}
+        </div>
+      )}
+
+      {/* Product Info */}
+      <div className="admin-card" style={{ marginBottom: 24 }}>
+        <div className="admin-card-body">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
+                📦 {product?.name}
+              </h1>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <span className={`admin-badge ${isUP ? 'blue' : 'amber'}`}>
+                  {isUP ? 'Username + Password' : 'Single Code'}
+                </span>
+                <span className={`admin-badge ${product?.is_active ? 'green' : 'red'}`}>
+                  {product?.is_active ? '● Active' : '● Inactive'}
+                </span>
+              </div>
+            </div>
+            <button className="admin-btn admin-btn-primary" onClick={() => setShowAddModal(true)}>
+              ➕ Add Credential
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="admin-stats-grid" style={{ marginBottom: 20 }}>
+        <div className="admin-stat-card purple">
+          <div className="admin-stat-label">Total</div>
+          <div className="admin-stat-value">{stats.total || 0}</div>
+        </div>
+        <div className="admin-stat-card green">
+          <div className="admin-stat-label">Available</div>
+          <div className="admin-stat-value">{stats.available || 0}</div>
+        </div>
+        <div className="admin-stat-card blue">
+          <div className="admin-stat-label">Assigned</div>
+          <div className="admin-stat-value">{stats.assigned || 0}</div>
+        </div>
+        <div className="admin-stat-card amber">
+          <div className="admin-stat-label">Used</div>
+          <div className="admin-stat-value">{stats.used || 0}</div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="admin-card" style={{ marginBottom: 20 }}>
+        <div className="admin-card-body" style={{ padding: 16 }}>
+          <div className="admin-search">
+            <input
+              type="text"
+              className="admin-search-input"
+              placeholder={isUP ? 'Search username...' : 'Search code...'}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <select
+              className="admin-select"
+              style={{ width: 160 }}
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="available">Available</option>
+              <option value="assigned">Assigned</option>
+              <option value="used">Used</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Credentials Table */}
+      <div className="admin-card">
+        {loading ? (
+          <div className="admin-loading">
+            <div className="admin-spinner"></div>
+            Loading...
+          </div>
+        ) : (
+          <>
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    {isUP ? (
+                      <>
+                        <th>Username</th>
+                        <th>Password</th>
+                      </>
+                    ) : (
+                      <th>Code</th>
+                    )}
+                    <th>Status</th>
+                    <th>Assigned To</th>
+                    <th>Notes</th>
+                    <th>Expires</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {credentials.length === 0 ? (
+                    <tr>
+                      <td colSpan={isUP ? 7 : 6}>
+                        <div className="admin-empty">
+                          <div className="admin-empty-icon">🔑</div>
+                          <div className="admin-empty-text">No credentials found</div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    credentials.map(c => (
+                      <tr key={c.id}>
+                        {isUP ? (
+                          <>
+                            <td style={{ fontFamily: 'monospace', fontWeight: 500 }}>{c.username}</td>
+                            <td style={{ fontFamily: 'monospace' }}>{'●'.repeat(8)}</td>
+                          </>
+                        ) : (
+                          <td style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                            {c.code?.length > 30 ? c.code.slice(0, 30) + '...' : c.code}
+                          </td>
+                        )}
+                        <td>
+                          <span className={`admin-badge ${
+                            c.status === 'available' ? 'green' :
+                            c.status === 'assigned' ? 'blue' :
+                            c.status === 'used' ? 'gray' : 'red'
+                          }`}>
+                            {c.status}
+                          </span>
+                        </td>
+                        <td>{c.assigned_to_username || '—'}</td>
+                        <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b' }}>
+                          {c.notes || '—'}
+                        </td>
+                        <td style={{ fontSize: 13, color: '#64748b' }}>
+                          {c.expires_at ? new Date(c.expires_at).toLocaleDateString() : '—'}
+                        </td>
+                        <td>
+                          <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDelete(c.id)}>
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {pagination.count > 0 && (
+              <div className="admin-pagination">
+                <button className="admin-page-btn" disabled={!pagination.previous} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                  ← Prev
+                </button>
+                <span className="admin-page-info">Page {page} · {pagination.count} total</span>
+                <button className="admin-page-btn" disabled={!pagination.next} onClick={() => setPage(p => p + 1)}>
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Add Credential Modal */}
+      {showAddModal && (
+        <div className="admin-modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <div className="admin-modal-title">➕ Add Credential</div>
+              <button className="admin-modal-close" onClick={() => setShowAddModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleAdd}>
+              <div className="admin-modal-body">
+                {addError && <div className="admin-alert error">⚠️ {addError}</div>}
+
+                <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+                  Product: <strong>{product?.name}</strong> · Type: <strong>{isUP ? 'Username + Password' : 'Single Code'}</strong>
+                </p>
+
+                {isUP ? (
+                  <>
+                    <div className="admin-field">
+                      <label className="admin-label">Username *</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        required
+                        value={addForm.username}
+                        onChange={e => setAddForm(f => ({ ...f, username: e.target.value }))}
+                      />
+                    </div>
+                    <div className="admin-field">
+                      <label className="admin-label">Password *</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        required
+                        value={addForm.password}
+                        onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="admin-field">
+                    <label className="admin-label">Activation Code *</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      required
+                      value={addForm.code}
+                      onChange={e => setAddForm(f => ({ ...f, code: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                <div className="admin-field">
+                  <label className="admin-label">Notes</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    value={addForm.notes}
+                    onChange={e => setAddForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="admin-field">
+                  <label className="admin-label">Expires At</label>
+                  <input
+                    type="datetime-local"
+                    className="admin-input"
+                    value={addForm.expires_at}
+                    onChange={e => setAddForm(f => ({ ...f, expires_at: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setShowAddModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={addLoading}>
+                  {addLoading ? 'Adding...' : '➕ Add Credential'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
