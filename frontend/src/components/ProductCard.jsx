@@ -32,6 +32,7 @@ export default function ProductCard({ product, onError }) {
   const isHotPlayer = product.provider_key === 'hotplayer';
   const isGoldenApi = product.provider_key === 'golden_api';
   const isPromax = product.provider_key === 'promax';
+  const isRedfoxx = product.provider_key === 'redfoxx';
 
   // Purchase modal state (shared for HotPlayer, Golden API, and Promax)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -72,7 +73,7 @@ export default function ProductCard({ product, onError }) {
 
   const handleBuy = () => {
     if (!selectedVariant) return;
-    if (isHotPlayer || isGoldenApi || isPromax) {
+    if (isHotPlayer || isGoldenApi || isPromax || isRedfoxx) {
       if (isHotPlayer) {
         const initialDuration = selectedVariant.display_name === 'Lifetime' ? 'forever' : 'year';
         setModalDuration(initialDuration);
@@ -181,6 +182,15 @@ export default function ProductCard({ product, onError }) {
       }
       try {
         await submitPurchase(variant.id, 1, null, '', '', '', selectedBouquetId, null);
+        setShowPurchaseModal(false);
+      } catch (err) {
+        setModalError(err.response?.data?.error || err.message || 'Purchase failed');
+      } finally {
+        setActivating(false);
+      }
+    } else if (isRedfoxx) {
+      try {
+        await submitPurchase(variant.id, quantity, null, noteInput.trim(), usernameInput.trim(), passwordInput.trim(), null, null);
         setShowPurchaseModal(false);
       } catch (err) {
         setModalError(err.response?.data?.error || err.message || 'Purchase failed');
@@ -347,7 +357,7 @@ export default function ProductCard({ product, onError }) {
                 </div>
               )}
 
-              {(isGoldenApi || isPromax) && (
+              {(isGoldenApi || isPromax || isRedfoxx) && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -371,42 +381,8 @@ export default function ProductCard({ product, onError }) {
                 </>
               )}
 
-              {isGoldenApi && (
+              {(isGoldenApi || isRedfoxx) && (
                 <>
-                  {templates.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Bouquet Template <span className="text-gray-400 font-normal">(optional)</span>
-                      </label>
-                      <select
-                        value={selectedTemplateId}
-                        onChange={(e) => setSelectedTemplateId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                      >
-                        <option value="">No template</option>
-                        {templates.map((t, i) => (
-                          <option key={i} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {domains.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        DNS Domain <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={selectedDomainId}
-                        onChange={(e) => setSelectedDomainId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                      >
-                        <option value="">Select a domain</option>
-                        {domains.map((d) => (
-                          <option key={d.id} value={d.id}>{d.domain}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Username <span className="text-gray-400 font-normal">(optional, auto-generated)</span>

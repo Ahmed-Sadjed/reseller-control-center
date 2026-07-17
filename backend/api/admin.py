@@ -109,6 +109,27 @@ class ProviderAdmin(admin.ModelAdmin):
         return '—'
     capabilities_display.short_description = 'Capabilities'
 
+    actions = ['sync_redfoxx_packages']
+
+    @admin.action(description='Sync packages from Redfoxx API')
+    def sync_redfoxx_packages(self, request, queryset):
+        from .management.commands.sync_redfoxx_packages import upsert_package
+        for provider in queryset:
+            if provider.adapter_key != 'redfoxx':
+                self.message_user(request, f"Skipping {provider.name}: not a Redfoxx provider", messages.WARNING)
+                continue
+            try:
+                adapter = get_adapter_for_provider(provider)
+                packages = adapter.get_packages()
+                count = 0
+                for pkg in packages:
+                    result = upsert_package(provider, pkg)
+                    if result:
+                        count += 1
+                self.message_user(request, f"Synced {count} packages from {provider.name}", messages.SUCCESS)
+            except Exception as e:
+                self.message_user(request, f"Error syncing {provider.name}: {e}", messages.ERROR)
+
     def save_model(self, request, obj, form, change):
         raw_token = form.cleaned_data.get('raw_token')
         if raw_token:

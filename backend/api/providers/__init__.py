@@ -5,6 +5,7 @@ from .hotplayer import HotPlayerAdapter
 from .golden_api import GoldenAPIAdapter
 from .tivipanel import TiviPanelAdapter
 from .promax import PromaxAdapter
+from .redfoxx import RedfoxxAdapter
 from .mock import MockProviderAdapter
 
 
@@ -15,6 +16,7 @@ ADAPTER_REGISTRY = {
     'golden_api': GoldenAPIAdapter,
     'tivipanel': TiviPanelAdapter,
     'promax': PromaxAdapter,
+    'redfoxx': RedfoxxAdapter,
     'mock': MockProviderAdapter,
 }
 

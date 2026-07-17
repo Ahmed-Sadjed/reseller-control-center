@@ -39,6 +39,7 @@ class Provider(models.Model):
         GOLDEN_API = 'golden_api', 'Golden API'
         TIVIPANEL = 'tivipanel', 'TiviPanel'
         PROMAX = 'promax', 'Promax'
+        REDFOXX = 'redfoxx', 'Redfoxx'
         MOCK = 'mock', 'Mock'
 
     name = models.CharField(max_length=100, unique=True)
@@ -263,7 +264,6 @@ class CreditTransaction(models.Model):
         ADMIN = 'ADMIN', 'Admin'
         RESELLER = 'RESELLER', 'Reseller'
         SYSTEM = 'SYSTEM', 'System'
-
     reseller = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='credit_transactions')
     delta = models.DecimalField(max_digits=12, decimal_places=2)
     balance_after = models.DecimalField(max_digits=12, decimal_places=2)
