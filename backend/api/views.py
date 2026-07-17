@@ -260,16 +260,19 @@ class OrderStatusView(APIView):
 
 class StatsView(APIView):
     def get(self, request):
-        cache_key = f'stats:{request.user.id}'
+        cache_key = 'stats_global'
         cached = cache.get(cache_key)
-        if cached:
-            return Response(cached)
-        data = {
-            'total_products': Product.objects.filter(is_active=True).count(),
-            'total_categories': Category.objects.filter(is_active=True).count(),
-            'credit_balance': request.user.credit_balance,
-        }
-        cache.set(cache_key, data, 300)
+        
+        if not cached:
+            cached = {
+                'total_products': Product.objects.filter(is_active=True).count(),
+                'total_categories': Category.objects.filter(is_active=True).count(),
+            }
+            cache.set(cache_key, cached, 300)
+            
+        # Always inject the user's live credit balance (never cached)
+        data = cached.copy()
+        data['credit_balance'] = request.user.credit_balance
         return Response(data)
 
 
