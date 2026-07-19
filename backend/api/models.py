@@ -21,6 +21,7 @@ class CustomUser(AbstractUser):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     email = models.EmailField(unique=True)
+    whatsapp_phone = models.CharField(max_length=20, blank=True, default='', help_text='WhatsApp number for receiving order notifications (admin only).')
 
     class Meta:
         indexes = [
@@ -40,6 +41,7 @@ class Provider(models.Model):
         TIVIPANEL = 'tivipanel', 'TiviPanel'
         PROMAX = 'promax', 'Promax'
         REDFOXX = 'redfoxx', 'Redfoxx'
+        WHATSAPP = 'whatsapp', 'WhatsApp'
         MOCK = 'mock', 'Mock'
 
     name = models.CharField(max_length=100, unique=True)

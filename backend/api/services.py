@@ -62,6 +62,10 @@ def fulfill_sync(order: Order, provider=None, mac='', note='', username='', pass
     if product.is_manual:
         return _fulfill_manual(order)
 
+    # ── WhatsApp product flow: generate notification link ──
+    if product.provider and product.provider.adapter_key == 'whatsapp':
+        return _fulfill_whatsapp(order)
+
     # ── API-driven product flow: call provider adapter ──
     if provider is None:
         provider = get_adapter_for_provider(order.product.provider)
@@ -235,6 +239,61 @@ def _fulfill_manual(order: Order):
 
     compensate_order(order, failure_reason)
     return [], failure_reason
+
+
+def _fulfill_whatsapp(order: Order):
+    """
+    Fulfill an order for a WhatsApp product by generating a wa.me link
+    with a pre-filled message. Order stays PENDING for admin to complete.
+    """
+    import re
+    from urllib.parse import quote
+    from api.models import CustomUser
+
+    admin = (
+        CustomUser.objects
+        .filter(role='ADMIN', whatsapp_phone__gt='')
+        .first()
+    )
+    if not admin:
+        compensate_order(order, 'No admin with WhatsApp phone configured.')
+        return [], 'No admin with WhatsApp phone configured.'
+
+    variant = order.variant
+    duration = 'Lifetime' if variant and variant.is_lifetime else (
+        variant.get_duration_months_display() if variant and variant.duration_months else '—'
+    )
+
+    message = (
+        f"🛒 *New Order Received*\n\n"
+        f"*Client:* {order.reseller.username}\n"
+        f"*Product:* {order.product.name}\n"
+        f"*Duration:* {duration}\n"
+        f"*Quantity:* {order.quantity}\n"
+        f"*Order ID:* {order.uuid}\n"
+    )
+
+    clean_phone = re.sub(r'\D', '', admin.whatsapp_phone)
+    wa_link = f"https://wa.me/{clean_phone}?text={quote(message)}"
+
+    credential = Credential.objects.create(
+        order=order,
+        external_username=f"whatsapp-{order.uuid}",
+        streaming_username=order.reseller.username,
+        encrypted_password=encrypt_password(''),
+        dns_domain='',
+        m3u_url='',
+        data={
+            'whatsapp': True,
+            'wa_link': wa_link,
+            'message': message,
+        },
+        expires_at=None,
+    )
+
+    order.status = Order.Status.COMPLETED
+    order.save()
+    return [credential], None
 
 
 def compensate_order(order: Order, failure_reason: str):

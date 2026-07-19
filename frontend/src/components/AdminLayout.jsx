@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { path: '/admin/resellers', label: 'Resellers', icon: '👥' },
   { path: '/admin/products', label: 'Manual Products', icon: '📦' },
   { path: '/admin/codes', label: 'Activation Codes', icon: '🔑' },
+  { path: '/admin/whatsapp', label: 'WhatsApp Orders', icon: '💬' },
+  { path: '/admin/settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export default function AdminLayout({ children }) {

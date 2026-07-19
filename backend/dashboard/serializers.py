@@ -236,3 +236,44 @@ class RevenueChartSerializer(serializers.Serializer):
     month = serializers.CharField()
     revenue = serializers.DecimalField(max_digits=12, decimal_places=2)
     orders = serializers.IntegerField()
+
+
+# ──────────────────────────────────────────────
+# WhatsApp Order Serializers
+# ──────────────────────────────────────────────
+
+class WhatsAppOrderSerializer(serializers.ModelSerializer):
+    reseller_username = serializers.CharField(source='reseller.username', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    duration_display = serializers.SerializerMethodField()
+    wa_link = serializers.SerializerMethodField()
+    message_text = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'uuid', 'reseller', 'reseller_username',
+            'product', 'product_name', 'duration_display',
+            'quantity', 'total_credits', 'status', 'created_at',
+            'wa_link', 'message_text',
+        ]
+
+    def get_duration_display(self, obj):
+        v = obj.variant
+        if not v:
+            return '—'
+        if v.is_lifetime:
+            return 'Lifetime'
+        return v.get_duration_months_display()
+
+    def get_wa_link(self, obj):
+        cred = obj.credentials.first()
+        if cred and cred.data:
+            return cred.data.get('wa_link')
+        return None
+
+    def get_message_text(self, obj):
+        cred = obj.credentials.first()
+        if cred and cred.data:
+            return cred.data.get('message')
+        return None

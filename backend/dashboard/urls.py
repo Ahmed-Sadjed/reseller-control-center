@@ -17,6 +17,13 @@ urlpatterns = [
     path('manual-products/<int:pk>/credentials/bulk/', views.CredentialBulkCreateView.as_view(), name='dashboard-credential-bulk'),
     path('credentials/<int:pk>/', views.CredentialDetailView.as_view(), name='dashboard-credential-detail'),
 
+    # WhatsApp Orders
+    path('whatsapp-orders/', views.WhatsAppOrdersView.as_view(), name='dashboard-whatsapp-orders'),
+    path('whatsapp-orders/<uuid:uuid>/complete/', views.CompleteWhatsAppOrderView.as_view(), name='dashboard-whatsapp-order-complete'),
+
+    # Admin Settings
+    path('settings/', views.AdminSettingsView.as_view(), name='dashboard-settings'),
+
     # Analytics & Monitoring
     path('stats/', views.DashboardStatsView.as_view(), name='dashboard-stats'),
     path('top-resellers/', views.TopResellersView.as_view(), name='dashboard-top-resellers'),

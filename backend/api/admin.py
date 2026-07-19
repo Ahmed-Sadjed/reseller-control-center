@@ -46,7 +46,7 @@ def add_credits(modeladmin, request, queryset):
 
 @admin.register(CustomUser)
 class CustomUserAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'role', 'credit_balance', 'is_active', 'uuid')
+    list_display = ('username', 'email', 'role', 'credit_balance', 'whatsapp_phone', 'is_active', 'uuid')
     list_filter = ('role', 'is_active')
     search_fields = ('username', 'email')
     ordering = ('-date_joined',)
@@ -57,7 +57,7 @@ class CustomUserAdmin(BaseUserAdmin):
         (None, {'fields': ('username', 'password')}),
         ('Personal info', {'fields': ('email',)}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Reseller Info', {'fields': ('role', 'credit_balance', 'created_by', 'uuid', 'last_login_ip')}),
+        ('Reseller Info', {'fields': ('role', 'credit_balance', 'created_by', 'uuid', 'last_login_ip', 'whatsapp_phone')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
 

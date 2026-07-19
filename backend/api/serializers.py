@@ -170,17 +170,24 @@ class CredentialSerializer(serializers.ModelSerializer):
             cred_type = data.get('credential_type', '')
             if cred_type == 'username_password':
                 return {
-                    'schema': [
+                    'fields': [
                         {'key': 'username', 'label': 'USERNAME'},
-                        {'key': 'secret_password', 'label': 'PASSWORD', 'secret': True},
+                        {'key': 'secret_password', 'label': 'PASSWORD', 'type': 'secret'},
                     ]
                 }
             elif cred_type == 'single_code':
                 return {
-                    'schema': [
+                    'fields': [
                         {'key': 'code', 'label': 'ACTIVATION CODE'},
                     ]
                 }
+        if data.get('whatsapp'):
+            return {
+                'fields': [
+                    {'key': 'wa_link', 'label': 'OPEN WHATSAPP', 'type': 'url'},
+                    {'key': 'message', 'label': 'MESSAGE'},
+                ]
+            }
         try:
             provider = obj.order.product.provider
             if provider and provider.extra_config:
@@ -234,6 +241,14 @@ class CredentialListSerializer(serializers.ModelSerializer):
         return extract_base_url(obj.m3u_url)
 
     def get_provider_config(self, obj):
+        data = dict(obj.data) if obj.data else {}
+        if data.get('whatsapp'):
+            return {
+                'fields': [
+                    {'key': 'wa_link', 'label': 'OPEN WHATSAPP', 'type': 'url'},
+                    {'key': 'message', 'label': 'MESSAGE'},
+                ]
+            }
         try:
             provider = obj.order.product.provider
             if provider and provider.extra_config:

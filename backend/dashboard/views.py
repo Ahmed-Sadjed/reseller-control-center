@@ -17,6 +17,7 @@ from .serializers import (
     CredentialCreateSerializer, CredentialBulkCreateSerializer,
     DashboardStatsSerializer, TopResellerSerializer,
     RecentActivitySerializer, RevenueChartSerializer,
+    WhatsAppOrderSerializer,
 )
 from .services import (
     get_dashboard_stats, get_top_resellers, get_recent_activity,
@@ -433,6 +434,68 @@ class CredentialDetailView(APIView):
         credential = get_object_or_404(ManualProductCredential, pk=pk)
         credential.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ──────────────────────────────────────────────
+# WhatsApp Order Views
+# ──────────────────────────────────────────────
+
+class WhatsAppOrdersView(DashboardPaginationMixin, APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        orders = (
+            Order.objects.filter(
+                product__provider__adapter_key='whatsapp',
+                status='PENDING',
+            )
+            .select_related('reseller', 'product', 'variant')
+            .prefetch_related('credentials')
+            .order_by('-created_at')
+        )
+        page = self.paginate_queryset(orders, request)
+        if page is not None:
+            serializer = WhatsAppOrderSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = WhatsAppOrderSerializer(orders, many=True)
+        return Response(serializer.data)
+
+
+class CompleteWhatsAppOrderView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, uuid):
+        order = get_object_or_404(
+            Order,
+            uuid=uuid,
+            product__provider__adapter_key='whatsapp',
+            status='PENDING',
+        )
+        order.status = Order.Status.COMPLETED
+        order.save()
+        return Response({'detail': 'Order marked as completed.'})
+
+
+# ──────────────────────────────────────────────
+# Admin Settings Views
+# ──────────────────────────────────────────────
+
+class AdminSettingsView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        return Response({
+            'whatsapp_phone': request.user.whatsapp_phone or '',
+        })
+
+    def put(self, request):
+        phone = request.data.get('whatsapp_phone', '').strip()
+        request.user.whatsapp_phone = phone
+        request.user.save(update_fields=['whatsapp_phone'])
+        return Response({
+            'whatsapp_phone': phone,
+            'detail': 'WhatsApp phone updated.',
+        })
 
 
 # ──────────────────────────────────────────────

@@ -17,6 +17,8 @@ import AdminResellerDetail from './pages/admin/AdminResellerDetail';
 import AdminManualProducts from './pages/admin/AdminManualProducts';
 import AdminProductDetail from './pages/admin/AdminProductDetail';
 import AdminActivationCodes from './pages/admin/AdminActivationCodes';
+import AdminWhatsAppOrders from './pages/admin/AdminWhatsAppOrders';
+import AdminSettings from './pages/admin/AdminSettings';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -184,6 +186,22 @@ export default function App() {
             element={
               <AdminRoute>
                 <AdminActivationCodes />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/whatsapp"
+            element={
+              <AdminRoute>
+                <AdminWhatsAppOrders />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <AdminRoute>
+                <AdminSettings />
               </AdminRoute>
             }
           />

@@ -22,6 +22,12 @@ export default function ReceiptPage() {
         ]);
         setOrder(orderRes.data);
         setCredentials(credRes.data);
+
+        // Auto-open WhatsApp for WhatsApp product credentials
+        const whatsappCred = credRes.data.find(c => c.credential_data?.wa_link);
+        if (whatsappCred) {
+          window.open(whatsappCred.credential_data.wa_link, '_blank');
+        }
       } catch {
         setError('Failed to load receipt data.');
       } finally {

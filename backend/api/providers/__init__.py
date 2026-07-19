@@ -7,6 +7,7 @@ from .tivipanel import TiviPanelAdapter
 from .promax import PromaxAdapter
 from .redfoxx import RedfoxxAdapter
 from .mock import MockProviderAdapter
+from .whatsapp import WhatsAppAdapter
 
 
 ADAPTER_REGISTRY = {
@@ -17,6 +18,7 @@ ADAPTER_REGISTRY = {
     'tivipanel': TiviPanelAdapter,
     'promax': PromaxAdapter,
     'redfoxx': RedfoxxAdapter,
+    'whatsapp': WhatsAppAdapter,
     'mock': MockProviderAdapter,
 }
 
