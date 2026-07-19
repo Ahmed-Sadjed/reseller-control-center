@@ -103,6 +103,7 @@ class Product(models.Model):
         THREE_MONTHS = 3, '3 Months'
         SIX_MONTHS = 6, '6 Months'
         TWELVE_MONTHS = 12, '12 Months'
+        FIFTEEN_MONTHS = 15, '15 Months'
         TWENTY_FOUR_MONTHS = 24, '2 Years'
         THIRTY_SIX_MONTHS = 36, '3 Years'
 

@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from api.models import CustomUser, Product, Order, CreditTransaction
+from api.models import CustomUser, Product, ProductVariant, Order, CreditTransaction
 from .models import ManualProductCredential
 from .permissions import IsSuperAdmin
 from .serializers import (
@@ -292,6 +292,10 @@ class ManualProductDetailView(DashboardPaginationMixin, APIView):
             'used': ManualProductCredential.objects.filter(product=product, status='used').count(),
         }
 
+        variants = ProductVariant.objects.filter(product=product).values(
+            'id', 'duration_months', 'is_lifetime', 'price_in_credits',
+        )
+
         page = self.paginate_queryset(credentials, request)
         if page is not None:
             serializer = CredentialSerializer(page, many=True)
@@ -301,6 +305,7 @@ class ManualProductDetailView(DashboardPaginationMixin, APIView):
                 'name': product.name,
                 'credential_type': product.credential_type,
                 'is_active': product.is_active,
+                'variants': list(variants),
             }
             response.data['stats'] = stats
             return response
@@ -312,6 +317,7 @@ class ManualProductDetailView(DashboardPaginationMixin, APIView):
                 'name': product.name,
                 'credential_type': product.credential_type,
                 'is_active': product.is_active,
+                'variants': list(variants),
             },
             'stats': stats,
             'results': serializer.data,
@@ -330,8 +336,12 @@ class CredentialCreateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
+        variant_id = data.get('variant_id')
+        variant = ProductVariant.objects.get(id=variant_id) if variant_id else None
+
         credential = ManualProductCredential.objects.create(
             product=product,
+            variant=variant,
             credential_type=product.credential_type,
             username=data.get('username', ''),
             password=data.get('password', ''),
@@ -368,8 +378,12 @@ class CredentialBulkCreateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            variant_id = item_data.get('variant_id')
+            variant = ProductVariant.objects.get(id=variant_id) if variant_id else None
+
             credential = ManualProductCredential.objects.create(
                 product=product,
+                variant=variant,
                 credential_type=product.credential_type,
                 username=item_data.get('username', ''),
                 password=item_data.get('password', ''),
@@ -405,6 +419,12 @@ class CredentialDetailView(APIView):
             credential.status = data['status']
         if 'expires_at' in data:
             credential.expires_at = data['expires_at']
+        if 'variant_id' in data:
+            if data['variant_id'] is not None:
+                variant = get_object_or_404(ProductVariant, id=data['variant_id'], product=credential.product)
+                credential.variant = variant
+            else:
+                credential.variant = None
 
         credential.save()
         return Response(CredentialSerializer(credential).data)

@@ -7,6 +7,7 @@ export default function AdminProductDetail() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [credentials, setCredentials] = useState([]);
+  const [variants, setVariants] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
@@ -16,7 +17,7 @@ export default function AdminProductDetail() {
 
   // Add modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ username: '', password: '', code: '', notes: '', expires_at: '' });
+  const [addForm, setAddForm] = useState({ variant_id: '', username: '', password: '', code: '', notes: '', expires_at: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [alert, setAlert] = useState(null);
@@ -30,6 +31,7 @@ export default function AdminProductDetail() {
       if (search) params.set('search', search);
       const { data } = await api.get(`/dashboard/manual-products/${id}/?${params}`);
       setProduct(data.product);
+      setVariants(data.product?.variants || []);
       setCredentials(data.results || []);
       setStats(data.stats || {});
       setPagination({ count: data.count || 0, next: data.next, previous: data.previous });
@@ -54,6 +56,7 @@ export default function AdminProductDetail() {
     setAddError('');
     try {
       const payload = {
+        variant_id: addForm.variant_id ? Number(addForm.variant_id) : null,
         username: addForm.username,
         password: addForm.password,
         code: addForm.code,
@@ -62,7 +65,7 @@ export default function AdminProductDetail() {
       };
       await api.post(`/dashboard/manual-products/${id}/credentials/`, payload);
       setShowAddModal(false);
-      setAddForm({ username: '', password: '', code: '', notes: '', expires_at: '' });
+      setAddForm({ variant_id: '', username: '', password: '', code: '', notes: '', expires_at: '' });
       showAlertMsg('Credential added!');
       fetchData();
     } catch (err) {
@@ -193,6 +196,7 @@ export default function AdminProductDetail() {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th>Duration</th>
                     {isUP ? (
                       <>
                         <th>Username</th>
@@ -211,7 +215,7 @@ export default function AdminProductDetail() {
                 <tbody>
                   {credentials.length === 0 ? (
                     <tr>
-                      <td colSpan={isUP ? 7 : 6}>
+                      <td colSpan={isUP ? 8 : 7}>
                         <div className="admin-empty">
                           <div className="admin-empty-icon">🔑</div>
                           <div className="admin-empty-text">No credentials found</div>
@@ -221,6 +225,9 @@ export default function AdminProductDetail() {
                   ) : (
                     credentials.map(c => (
                       <tr key={c.id}>
+                        <td style={{ fontSize: 13, color: '#64748b' }}>
+                          {c.variant_display || '—'}
+                        </td>
                         {isUP ? (
                           <>
                             <td style={{ fontFamily: 'monospace', fontWeight: 500 }}>{c.username}</td>
@@ -289,6 +296,31 @@ export default function AdminProductDetail() {
                 <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
                   Product: <strong>{product?.name}</strong> · Type: <strong>{isUP ? 'Username + Password' : 'Single Code'}</strong>
                 </p>
+
+                <div className="admin-field">
+                  <label className="admin-label">Duration *</label>
+                  <select
+                    className="admin-select"
+                    style={{ width: '100%' }}
+                    required
+                    value={addForm.variant_id}
+                    onChange={e => setAddForm(f => ({ ...f, variant_id: e.target.value }))}
+                  >
+                    <option value="">Select duration...</option>
+                    {variants.map(v => (
+                      <option key={v.id} value={v.id}>
+                        {v.is_lifetime ? 'Lifetime' : (() => {
+                          const labels = {
+                            100: '6 Hours', 101: '12 Hours', 102: '24 Hours', 103: '72 Hours',
+                            1: '1 Month', 3: '3 Months', 6: '6 Months', 12: '12 Months',
+                            15: '15 Months', 24: '2 Years', 36: '3 Years',
+                          };
+                          return labels[v.duration_months] || `${v.duration_months} Months`;
+                        })()} — {v.price_in_credits} credits
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {isUP ? (
                   <>

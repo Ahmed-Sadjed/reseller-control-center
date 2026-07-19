@@ -152,12 +152,21 @@ def _fulfill_manual(order: Order):
 
     for idx in range(order.quantity):
         with transaction.atomic():
+            # Phase 1: try exact variant match
             manual_cred = (
                 ManualProductCredential.objects
-                .filter(product=order.product, status='available')
+                .filter(product=order.product, variant=order.variant, status='available')
                 .select_for_update(skip_locked=True)
                 .first()
             )
+            # Phase 2: fallback to legacy credentials (no variant assigned)
+            if not manual_cred:
+                manual_cred = (
+                    ManualProductCredential.objects
+                    .filter(product=order.product, variant__isnull=True, status='available')
+                    .select_for_update(skip_locked=True)
+                    .first()
+                )
 
             if not manual_cred:
                 failure_reason = f"Product '{order.product.name}' is out of stock (no available credentials)."

@@ -28,6 +28,14 @@ class ManualProductCredential(models.Model):
         on_delete=models.CASCADE,
         related_name='manual_credentials',
     )
+    variant = models.ForeignKey(
+        'api.ProductVariant',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='manual_credentials',
+        help_text='The duration variant this credential is tied to. Null for legacy/universal credentials.',
+    )
     credential_type = models.CharField(
         max_length=20,
         choices=CredentialType.choices,
@@ -69,6 +77,7 @@ class ManualProductCredential(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['product', 'status']),
+            models.Index(fields=['product', 'variant', 'status']),
             models.Index(fields=['assigned_to', 'status']),
             models.Index(fields=['status']),
         ]

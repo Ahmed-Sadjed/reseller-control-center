@@ -134,17 +134,25 @@ class CredentialSerializer(serializers.ModelSerializer):
         source='assigned_to.username', read_only=True, default=None,
     )
     product_name = serializers.CharField(source='product.name', read_only=True)
+    variant = serializers.IntegerField(source='variant_id', read_only=True)
+    variant_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ManualProductCredential
         fields = [
             'id', 'uuid', 'product', 'product_name', 'credential_type',
+            'variant', 'variant_display',
             'username', 'password', 'code', 'notes',
             'status', 'assigned_to', 'assigned_to_username',
             'assigned_at', 'used_at', 'expires_at',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'uuid', 'created_at', 'updated_at']
+
+    def get_variant_display(self, obj):
+        if not obj.variant:
+            return None
+        return str(obj.variant)
 
 
 class CredentialCreateSerializer(serializers.Serializer):
@@ -153,6 +161,7 @@ class CredentialCreateSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     expires_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+    variant_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
     def validate(self, data):
         product = self.context.get('product')
@@ -168,6 +177,14 @@ class CredentialCreateSerializer(serializers.Serializer):
             if not data.get('code'):
                 raise serializers.ValidationError(
                     "Activation code is required for this product."
+                )
+
+        variant_id = data.get('variant_id')
+        if variant_id is not None:
+            from api.models import ProductVariant
+            if not ProductVariant.objects.filter(id=variant_id, product=product).exists():
+                raise serializers.ValidationError(
+                    {"variant_id": "Variant does not belong to this product."}
                 )
         return data
 
