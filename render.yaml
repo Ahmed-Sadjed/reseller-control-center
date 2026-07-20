@@ -1,0 +1,86 @@
+services:
+  - type: web
+    name: reseller-backend
+    runtime: python
+    region: frankfurt
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./start.sh
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reseller-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: reseller-redis
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: FERNET_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,reseller-control-center.vercel.app"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://reseller-control-center.vercel.app"
+      - key: CONN_MAX_AGE
+        value: "0"
+      - key: USE_S3
+        value: "False"
+
+  - type: worker
+    name: reseller-worker
+    runtime: python
+    region: frankfurt
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py rqworker default
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reseller-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: reseller-redis
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: FERNET_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,reseller-control-center.vercel.app"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://reseller-control-center.vercel.app"
+      - key: CONN_MAX_AGE
+        value: "0"
+
+databases:
+  - name: reseller-db
+    databaseName: reseller_control_center
+    region: frankfurt
+    plan: free
+    postgresMajorVersion: 16
+
+redis:
+  - name: reseller-redis
+    region: frankfurt
+    plan: free
+    maxmemoryPolicy: allkeys-lru
