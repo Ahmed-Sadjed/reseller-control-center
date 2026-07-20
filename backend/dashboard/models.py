@@ -18,7 +18,6 @@ class ManualProductCredential(models.Model):
 
     class Status(models.TextChoices):
         AVAILABLE = 'available', 'Available'
-        ASSIGNED = 'assigned', 'Assigned'
         USED = 'used', 'Used'
         EXPIRED = 'expired', 'Expired'
 

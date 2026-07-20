@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from api.models import CustomUser, Product, ProductVariant, Order, CreditTransaction
+from api.models import CustomUser, Product, ProductVariant, Category, Provider, Order, CreditTransaction
 from .models import ManualProductCredential
 from .permissions import IsSuperAdmin
 from .serializers import (
@@ -16,12 +16,15 @@ from .serializers import (
     ManualProductListSerializer, CredentialSerializer,
     CredentialCreateSerializer, CredentialBulkCreateSerializer,
     DashboardStatsSerializer, TopResellerSerializer,
-    RecentActivitySerializer, RevenueChartSerializer,
+    RecentActivitySerializer,
     WhatsAppOrderSerializer,
+    CategorySerializer, ProviderSerializer,
+    ProductListSerializer, ProductCreateSerializer,
+    ProductUpdateSerializer, ProductVariantSerializer,
 )
 from .services import (
     get_dashboard_stats, get_top_resellers, get_recent_activity,
-    get_revenue_chart_data, get_provider_health, adjust_credits,
+    get_provider_health, adjust_credits,
 )
 
 logger = logging.getLogger(__name__)
@@ -244,10 +247,6 @@ class ManualProductListView(DashboardPaginationMixin, APIView):
                     'manual_credentials',
                     filter=Q(manual_credentials__status='used'),
                 ),
-                assigned_credentials=Count(
-                    'manual_credentials',
-                    filter=Q(manual_credentials__status='assigned'),
-                ),
             )
             .order_by('name')
         )
@@ -289,7 +288,6 @@ class ManualProductDetailView(DashboardPaginationMixin, APIView):
         stats = {
             'total': credentials.count(),
             'available': ManualProductCredential.objects.filter(product=product, status='available').count(),
-            'assigned': ManualProductCredential.objects.filter(product=product, status='assigned').count(),
             'used': ManualProductCredential.objects.filter(product=product, status='used').count(),
         }
 
@@ -542,19 +540,246 @@ class RecentActivityView(APIView):
         return Response(serializer.data)
 
 
-class RevenueChartView(APIView):
-    permission_classes = [IsSuperAdmin]
-
-    def get(self, request):
-        months = int(request.query_params.get('months', 12))
-        data = get_revenue_chart_data(months=months)
-        serializer = RevenueChartSerializer(data, many=True)
-        return Response(serializer.data)
-
-
 class ProviderHealthView(APIView):
     permission_classes = [IsSuperAdmin]
 
     def get(self, request):
         data = get_provider_health()
         return Response(data)
+
+
+# ──────────────────────────────────────────────
+# Product Management Views
+# ──────────────────────────────────────────────
+
+class AdminProductListView(DashboardPaginationMixin, APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        products = Product.objects.select_related('category', 'provider')
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            products = products.filter(name__icontains=search)
+
+        category = request.query_params.get('category', '').strip()
+        if category:
+            products = products.filter(category_id=category)
+
+        product_type = request.query_params.get('type', '').strip()
+        if product_type == 'manual':
+            products = products.filter(is_manual=True)
+        elif product_type == 'api':
+            products = products.filter(is_manual=False).exclude(provider__adapter_key='whatsapp')
+        elif product_type == 'whatsapp':
+            products = products.filter(provider__adapter_key='whatsapp')
+
+        status = request.query_params.get('status', '').strip()
+        if status == 'active':
+            products = products.filter(is_active=True)
+        elif status == 'inactive':
+            products = products.filter(is_active=False)
+
+        products = products.annotate(
+            variant_count=Count('variants', distinct=True),
+            total_credentials=Count('manual_credentials', distinct=True),
+            available_credentials=Count(
+                'manual_credentials',
+                filter=Q(manual_credentials__status='available'),
+                distinct=True,
+            ),
+        )
+
+        products = products.order_by('-created_at')
+
+        page = self.paginate_queryset(products, request)
+        if page is not None:
+            serializer = ProductListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = ProductListSerializer(products, many=True)
+        return Response(serializer.data)
+
+
+class AdminProductCreateView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request):
+        serializer = ProductCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        product = serializer.save()
+        return Response(
+            ProductListSerializer(product).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminProductDetailView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get_object(self, pk):
+        return get_object_or_404(
+            Product.objects.select_related('category', 'provider'),
+            pk=pk,
+        )
+
+    def get(self, request, pk):
+        product = self.get_object(pk)
+        serializer = ProductListSerializer(product)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        product = self.get_object(pk)
+        serializer = ProductUpdateSerializer(product, data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        product = serializer.save()
+        return Response(ProductListSerializer(product).data)
+
+    def delete(self, request, pk):
+        product = self.get_object(pk)
+        has_orders = Order.objects.filter(product=product).exists()
+        if has_orders:
+            product.is_active = False
+            product.save()
+            return Response(
+                {'detail': 'Product has existing orders. It has been deactivated instead of deleted.'},
+                status=status.HTTP_200_OK,
+            )
+        product.delete()
+        return Response(
+            {'detail': 'Product deleted successfully.'},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+class AdminProductImageUploadView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        if 'image' not in request.FILES:
+            return Response({'error': 'No image file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        product.image = request.FILES['image']
+        product.save()
+        return Response({
+            'detail': 'Image uploaded successfully.',
+            'image_url': product.thumbnail.url if product.thumbnail else product.image.url,
+        })
+
+
+# ──────────────────────────────────────────────
+# Category Management Views
+# ──────────────────────────────────────────────
+
+class CategoryListView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        categories = Category.objects.all().order_by('sort_order', 'name')
+        serializer = CategorySerializer(categories, many=True)
+        return Response(serializer.data)
+
+
+class CategoryCreateView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request):
+        serializer = CategorySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        category = serializer.save()
+        return Response(CategorySerializer(category).data, status=status.HTTP_201_CREATED)
+
+
+class CategoryDetailView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get_object(self, pk):
+        return get_object_or_404(Category, pk=pk)
+
+    def get(self, request, pk):
+        category = self.get_object(pk)
+        serializer = CategorySerializer(category)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        category = self.get_object(pk)
+        serializer = CategorySerializer(category, data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        category = serializer.save()
+        return Response(CategorySerializer(category).data)
+
+    def delete(self, request, pk):
+        category = self.get_object(pk)
+        product_count = category.products.count()
+        if product_count > 0:
+            return Response(
+                {'error': f'Cannot delete category. It has {product_count} product(s) assigned.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        category.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ──────────────────────────────────────────────
+# Variant Management Views
+# ──────────────────────────────────────────────
+
+class ProductVariantListView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request, product_pk):
+        product = get_object_or_404(Product, pk=product_pk)
+        variants = ProductVariant.objects.filter(product=product).order_by('duration_months')
+        serializer = ProductVariantSerializer(variants, many=True)
+        return Response(serializer.data)
+
+
+class ProductVariantCreateView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, product_pk):
+        product = get_object_or_404(Product, pk=product_pk)
+        serializer = ProductVariantSerializer(data=request.data, context={'product': product, 'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        variant = serializer.save(product=product)
+        return Response(
+            ProductVariantSerializer(variant).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProductVariantDetailView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get_object(self, product_pk, variant_pk):
+        return get_object_or_404(ProductVariant, pk=variant_pk, product_id=product_pk)
+
+    def put(self, request, product_pk, variant_pk):
+        variant = self.get_object(product_pk, variant_pk)
+        serializer = ProductVariantSerializer(variant, data=request.data, context={'product': variant.product, 'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        variant = serializer.save()
+        return Response(ProductVariantSerializer(variant).data)
+
+    def delete(self, request, product_pk, variant_pk):
+        variant = self.get_object(product_pk, variant_pk)
+        variant.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ──────────────────────────────────────────────
+# Provider List View
+# ──────────────────────────────────────────────
+
+class AdminProviderListView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        providers = Provider.objects.filter(is_active=True)
+        serializer = ProviderSerializer(providers, many=True)
+        return Response(serializer.data)

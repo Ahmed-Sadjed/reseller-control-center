@@ -146,10 +146,6 @@ export default function AdminProductDetail() {
           <div className="admin-stat-label">Available</div>
           <div className="admin-stat-value">{stats.available || 0}</div>
         </div>
-        <div className="admin-stat-card blue">
-          <div className="admin-stat-label">Assigned</div>
-          <div className="admin-stat-value">{stats.assigned || 0}</div>
-        </div>
         <div className="admin-stat-card amber">
           <div className="admin-stat-label">Used</div>
           <div className="admin-stat-value">{stats.used || 0}</div>
@@ -175,7 +171,6 @@ export default function AdminProductDetail() {
             >
               <option value="">All Status</option>
               <option value="available">Available</option>
-              <option value="assigned">Assigned</option>
               <option value="used">Used</option>
               <option value="expired">Expired</option>
             </select>
@@ -241,7 +236,6 @@ export default function AdminProductDetail() {
                         <td>
                           <span className={`admin-badge ${
                             c.status === 'available' ? 'green' :
-                            c.status === 'assigned' ? 'blue' :
                             c.status === 'used' ? 'gray' : 'red'
                           }`}>
                             {c.status}

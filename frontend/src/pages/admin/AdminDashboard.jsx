@@ -28,7 +28,6 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [topResellers, setTopResellers] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [revenueData, setRevenueData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,13 +35,11 @@ export default function AdminDashboard() {
       api.get('/dashboard/stats/'),
       api.get('/dashboard/top-resellers/?limit=5'),
       api.get('/dashboard/recent-activity/?limit=10'),
-      api.get('/dashboard/revenue-chart/?months=12'),
     ])
-      .then(([statsRes, topRes, activityRes, revenueRes]) => {
+      .then(([statsRes, topRes, activityRes]) => {
         setStats(statsRes.data);
         setTopResellers(topRes.data);
         setRecentActivity(activityRes.data);
-        setRevenueData(revenueRes.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -58,19 +55,6 @@ export default function AdminDashboard() {
       </AdminLayout>
     );
   }
-
-  // Simple inline SVG chart
-  const maxRevenue = Math.max(...revenueData.map(d => Number(d.revenue)), 1);
-  const chartWidth = 600;
-  const chartHeight = 200;
-  const padding = 30;
-  const points = revenueData.map((d, i) => {
-    const x = padding + (i / Math.max(revenueData.length - 1, 1)) * (chartWidth - padding * 2);
-    const y = chartHeight - padding - (Number(d.revenue) / maxRevenue) * (chartHeight - padding * 2);
-    return { x, y, ...d };
-  });
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const areaPath = linePath + ` L ${points[points.length - 1]?.x || 0} ${chartHeight - padding} L ${points[0]?.x || 0} ${chartHeight - padding} Z`;
 
   return (
     <AdminLayout>
@@ -116,57 +100,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
-        {/* Revenue Chart */}
-        <div className="admin-card">
-          <div className="admin-card-header">
-            <div className="admin-card-title">📈 Revenue Trend</div>
-          </div>
-          <div className="admin-card-body" style={{ padding: 16 }}>
-            {revenueData.length > 0 ? (
-              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 200 }}>
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
-                {/* Grid lines */}
-                {[0.25, 0.5, 0.75].map(f => (
-                  <line
-                    key={f}
-                    x1={padding}
-                    y1={chartHeight - padding - f * (chartHeight - padding * 2)}
-                    x2={chartWidth - padding}
-                    y2={chartHeight - padding - f * (chartHeight - padding * 2)}
-                    stroke="#e2e8f0"
-                    strokeDasharray="4"
-                  />
-                ))}
-                {/* Area */}
-                <path d={areaPath} fill="url(#areaGrad)" />
-                {/* Line */}
-                <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                {/* Dots */}
-                {points.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r="4" fill="#6366f1" stroke="#fff" strokeWidth="2" />
-                ))}
-                {/* Labels */}
-                {points.filter((_, i) => i % Math.max(1, Math.floor(points.length / 6)) === 0).map((p, i) => (
-                  <text key={i} x={p.x} y={chartHeight - 8} textAnchor="middle" fontSize="10" fill="#94a3b8">
-                    {p.month?.slice(5)}
-                  </text>
-                ))}
-              </svg>
-            ) : (
-              <div className="admin-empty">
-                <div className="admin-empty-icon">📊</div>
-                <div className="admin-empty-text">No revenue data yet</div>
-              </div>
-            )}
-          </div>
-        </div>
-
+      <div style={{ marginBottom: 28 }}>
         {/* Top Resellers */}
         <div className="admin-card">
           <div className="admin-card-header">

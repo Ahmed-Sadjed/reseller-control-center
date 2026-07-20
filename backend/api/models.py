@@ -180,7 +180,7 @@ class ProductVariant(models.Model):
         default=False,
         help_text='Check for subscriptions that never expire (e.g. HotPlayer FOREVER).',
     )
-    external_pack_id = models.IntegerField()
+    external_pack_id = models.IntegerField(null=True, blank=True)
     price_in_credits = models.DecimalField(max_digits=10, decimal_places=2)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

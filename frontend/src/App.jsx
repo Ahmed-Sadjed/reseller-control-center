@@ -14,7 +14,7 @@ import LineManagerPage from './pages/LineManagerPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminResellers from './pages/admin/AdminResellers';
 import AdminResellerDetail from './pages/admin/AdminResellerDetail';
-import AdminManualProducts from './pages/admin/AdminManualProducts';
+import AdminProducts from './pages/admin/AdminProducts';
 import AdminProductDetail from './pages/admin/AdminProductDetail';
 import AdminActivationCodes from './pages/admin/AdminActivationCodes';
 import AdminWhatsAppOrders from './pages/admin/AdminWhatsAppOrders';
@@ -169,7 +169,7 @@ export default function App() {
             path="/admin/products"
             element={
               <AdminRoute>
-                <AdminManualProducts />
+                <AdminProducts />
               </AdminRoute>
             }
           />

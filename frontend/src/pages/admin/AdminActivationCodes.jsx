@@ -10,7 +10,7 @@ export default function AdminActivationCodes() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [productFilter, setProductFilter] = useState('');
-  const [stats, setStats] = useState({ total: 0, available: 0, assigned: 0, used: 0 });
+  const [stats, setStats] = useState({ total: 0, available: 0, used: 0 });
 
   useEffect(() => {
     // Fetch all manual products for the filter dropdown
@@ -29,11 +29,11 @@ export default function AdminActivationCodes() {
         if (search) params.set('search', search);
         const { data } = await api.get(`/dashboard/manual-products/${productFilter}/?${params}`);
         setCredentials(data.results || []);
-        setStats(data.stats || { total: 0, available: 0, assigned: 0, used: 0 });
+        setStats(data.stats || { total: 0, available: 0, used: 0 });
       } else {
         // Show aggregate stats from all products
         const allCreds = [];
-        let totalStats = { total: 0, available: 0, assigned: 0, used: 0 };
+        let totalStats = { total: 0, available: 0, used: 0 };
         for (const p of products) {
           try {
             const params = new URLSearchParams();
@@ -45,7 +45,6 @@ export default function AdminActivationCodes() {
             if (data.stats) {
               totalStats.total += data.stats.total || 0;
               totalStats.available += data.stats.available || 0;
-              totalStats.assigned += data.stats.assigned || 0;
               totalStats.used += data.stats.used || 0;
             }
           } catch (err) {
@@ -99,11 +98,6 @@ export default function AdminActivationCodes() {
           <div className="admin-stat-value">{stats.available}</div>
           <div className="admin-stat-icon">✅</div>
         </div>
-        <div className="admin-stat-card blue">
-          <div className="admin-stat-label">Assigned</div>
-          <div className="admin-stat-value">{stats.assigned}</div>
-          <div className="admin-stat-icon">📋</div>
-        </div>
         <div className="admin-stat-card amber">
           <div className="admin-stat-label">Used</div>
           <div className="admin-stat-value">{stats.used}</div>
@@ -141,7 +135,6 @@ export default function AdminActivationCodes() {
             >
               <option value="">All Status</option>
               <option value="available">Available</option>
-              <option value="assigned">Assigned</option>
               <option value="used">Used</option>
               <option value="expired">Expired</option>
             </select>
@@ -205,7 +198,6 @@ export default function AdminActivationCodes() {
                       <td>
                         <span className={`admin-badge ${
                           c.status === 'available' ? 'green' :
-                          c.status === 'assigned' ? 'blue' :
                           c.status === 'used' ? 'gray' : 'red'
                         }`}>
                           {c.status}

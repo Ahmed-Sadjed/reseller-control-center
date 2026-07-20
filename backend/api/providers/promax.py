@@ -124,7 +124,7 @@ class PromaxAdapter(BaseProviderAdapter):
         log_params = {k: v for k, v in params.items() if k != 'api_key'}
         request_url = f"{self.api_url}?action=bouquet&public=1&api_key=<REDACTED>"
 
-        try:
+        try:    
             logger.info("Promax fetching bouquets from: %s", request_url)
             response = requests.get(self.api_url, params=params, timeout=self.timeout)
             logger.info("Promax bouquets response: status=%s body=%s", response.status_code, response.text[:600])

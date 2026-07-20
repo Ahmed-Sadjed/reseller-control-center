@@ -61,7 +61,6 @@ export default function AdminManualProducts() {
                   <th>Type</th>
                   <th>Total</th>
                   <th>Available</th>
-                  <th>Assigned</th>
                   <th>Used</th>
                   <th>Actions</th>
                 </tr>
@@ -97,7 +96,6 @@ export default function AdminManualProducts() {
                           {p.available_credentials || 0}
                         </span>
                       </td>
-                      <td style={{ color: '#d97706' }}>{p.assigned_credentials || 0}</td>
                       <td style={{ color: '#64748b' }}>{p.used_credentials || 0}</td>
                       <td>
                         <Link to={`/admin/products/${p.id}`} className="admin-btn admin-btn-primary admin-btn-sm">
