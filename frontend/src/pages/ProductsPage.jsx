@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import ProductCard from '../components/ProductCard';
@@ -15,6 +15,7 @@ export default function ProductsPage() {
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10));
   const [totalPages, setTotalPages] = useState(1);
   const { addToast } = useToast();
+  const debounceRef = useRef(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -55,9 +56,16 @@ export default function ProductsPage() {
     setSearchParams(params);
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    updateParams({ page: null });
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = {};
+      if (value) params.search = value;
+      if (categoryFilter) params.category = categoryFilter;
+      setSearchParams(params);
+    }, 300);
   };
 
   const handleCategoryChange = (slug) => {
@@ -85,12 +93,12 @@ export default function ProductsPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Products</h1>
 
-        <form onSubmit={handleSearch} className="flex gap-3">
+        <div className="flex gap-3">
           <div className="flex-1">
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={handleSearchChange}
               placeholder="Search products..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
@@ -105,13 +113,7 @@ export default function ProductsPage() {
               <option key={cat.id} value={cat.slug}>{cat.name}</option>
             ))}
           </select>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Search
-          </button>
-        </form>
+        </div>
 
         {hasFilters && (
           <div className="flex items-center gap-2">

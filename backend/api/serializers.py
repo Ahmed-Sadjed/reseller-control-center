@@ -1,6 +1,7 @@
 from decimal import Decimal
 from rest_framework import serializers
 from .models import CustomUser, Category, Product, ProductVariant, Order, Credential, CreditTransaction
+from dashboard.models import ManualProductCredential
 from .utils import decrypt_password, extract_base_url
 
 
@@ -29,16 +30,24 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
+    stock_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductVariant
         fields = ['id', 'duration_months', 'display_name', 'external_pack_id',
-                   'price_in_credits', 'is_active']
+                   'price_in_credits', 'is_active', 'stock_count']
 
     def get_display_name(self, obj):
         if obj.is_lifetime:
             return 'Lifetime'
         return obj.get_duration_months_display()
+
+    def get_stock_count(self, obj):
+        if not obj.product.is_manual:
+            return None
+        return ManualProductCredential.objects.filter(
+            product=obj.product, variant=obj, status='available'
+        ).count()
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -48,12 +57,14 @@ class ProductSerializer(serializers.ModelSerializer):
     provider_name = serializers.CharField(source='provider.name', read_only=True)
     provider_key = serializers.CharField(source='provider.adapter_key', read_only=True)
     thumbnail_url = serializers.SerializerMethodField()
+    available_credentials = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'category', 'category_name', 'category_slug',
                   'provider', 'provider_name', 'provider_key', 'description', 'image',
-                  'thumbnail_url', 'is_active', 'variants', 'created_at']
+                  'thumbnail_url', 'is_active', 'is_manual', 'available_credentials',
+                  'variants', 'created_at']
 
     def get_variants(self, obj):
         active = getattr(obj, 'active_variants', None)
@@ -66,6 +77,13 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.thumbnail.url if obj.image else None
         except Exception:
             return None
+
+    def get_available_credentials(self, obj):
+        if not obj.is_manual:
+            return None
+        return ManualProductCredential.objects.filter(
+            product=obj, status=ManualProductCredential.Status.AVAILABLE
+        ).count()
 
 
 class PurchaseSerializer(serializers.Serializer):

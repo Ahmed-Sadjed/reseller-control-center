@@ -29,6 +29,9 @@ export default function ProductCard({ product, onError }) {
   const variants = product.variants || [];
   const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
 
+  const isManual = product.is_manual;
+  const allOutOfStock = isManual && variants.every(v => v.stock_count === 0);
+  const variantOutOfStock = isManual && selectedVariant && selectedVariant.stock_count === 0;
   const isHotPlayer = product.provider_key === 'hotplayer';
   const isGoldenApi = product.provider_key === 'golden_api';
   const isPromax = product.provider_key === 'promax';
@@ -226,11 +229,18 @@ export default function ProductCard({ product, onError }) {
       <div className="p-6">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
-          {product.provider_name && (
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded whitespace-nowrap">
-              {product.provider_name}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {allOutOfStock && (
+              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded whitespace-nowrap font-medium">
+                Out of Stock
+              </span>
+            )}
+            {product.provider_name && (
+              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded whitespace-nowrap">
+                {product.provider_name}
+              </span>
+            )}
+          </div>
         </div>
         {product.description && (
           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description}</p>
@@ -246,45 +256,67 @@ export default function ProductCard({ product, onError }) {
             <label className="text-sm text-gray-600 block mb-1">Duration:</label>
             <div className="flex flex-wrap gap-1.5">
               {variants.length === 1 ? (
-                <span className="px-3 py-1.5 text-sm font-medium rounded bg-gray-100 text-gray-500 cursor-default">
+                <span className={`px-3 py-1.5 text-sm font-medium rounded ${
+                  isManual && variants[0].stock_count === 0
+                    ? 'bg-red-50 text-red-500 line-through'
+                    : 'bg-gray-100 text-gray-500'
+                } cursor-default`}>
                   {variants[0].display_name || 'Lifetime'}
                 </span>
               ) : (
-                variants.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedVariant(v)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                      selectedVariant?.id === v.id
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {v.display_name || 'Lifetime'}
-                  </button>
-                ))
+                variants.map((v) => {
+                  const hasNoStock = isManual && v.stock_count === 0;
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => !hasNoStock && setSelectedVariant(v)}
+                      disabled={hasNoStock}
+                      className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                        hasNoStock
+                          ? 'bg-red-50 text-red-400 line-through cursor-not-allowed'
+                          : selectedVariant?.id === v.id
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title={hasNoStock ? 'Out of stock' : v.display_name}
+                    >
+                      {v.display_name || 'Lifetime'}
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
         )}
-        <div className="mt-4 flex items-center space-x-3">
-          <label className="text-sm text-gray-600">Qty:</label>
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={quantity}
-            onChange={(e) => setQuantity(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
-            className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-          />
-          <button
-            onClick={handleBuy}
-            disabled={buying || !selectedVariant}
-            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {buying ? 'Buying...' : 'Buy Now'}
-          </button>
-        </div>
+        {variantOutOfStock ? (
+          <div className="mt-4">
+            <button
+              disabled
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-gray-400 rounded cursor-not-allowed"
+            >
+              Out of Stock
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 flex items-center space-x-3">
+            <label className="text-sm text-gray-600">Qty:</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
+            />
+            <button
+              onClick={handleBuy}
+              disabled={buying || !selectedVariant}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {buying ? 'Buying...' : 'Buy Now'}
+            </button>
+          </div>
+        )}
       </div>
 
       {showPurchaseModal && (

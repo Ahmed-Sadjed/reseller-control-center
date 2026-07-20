@@ -94,7 +94,8 @@ class ProductListView(APIView):
 
         search = request.query_params.get('search', '').strip()
         if search:
-            query = SearchQuery(search, config='simple')
+            tsquery = ' & '.join(f'{w}:*' for w in search.split())
+            query = SearchQuery(tsquery, search_type='raw', config='simple')
             products = (
                 products.annotate(rank=SearchRank('search_vector', query))
                 .filter(search_vector=query)
@@ -113,10 +114,10 @@ class ProductListView(APIView):
         if page is not None:
             serializer = ProductSerializer(page, many=True)
             response = self.get_paginated_response(serializer.data)
-            cache.set(cache_key, response.data, 300)
+            cache.set(cache_key, response.data, 30)
             return response
         serializer = ProductSerializer(products, many=True)
-        cache.set(cache_key, serializer.data, 300)
+        cache.set(cache_key, serializer.data, 30)
         return Response(serializer.data)
 
     @property
