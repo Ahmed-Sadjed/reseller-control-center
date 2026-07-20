@@ -1,11 +1,21 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+import warnings
+from urllib.parse import urlparse
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'insecure-dev-key-change-in-production')
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+# Security and debug
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY must be set in production')
+    warnings.warn('DJANGO_SECRET_KEY is not set; running in DEBUG mode with an insecure key', RuntimeWarning)
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
@@ -61,17 +71,36 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'iptv_db'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-        'CONN_MAX_AGE': int(os.environ.get('CONN_MAX_AGE', 60)),
+# DATABASE configuration: support DATABASE_URL (Neon) or legacy DB_* envs
+DATABASE_URL = os.environ.get('DATABASE_URL')
+CONN_MAX_AGE = int(os.environ.get('CONN_MAX_AGE', 60))
+if DATABASE_URL:
+    # DATABASE_URL like: postgres://user:pass@host:port/dbname
+    url = urlparse(DATABASE_URL)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': url.path[1:],
+            'USER': url.username,
+            'PASSWORD': url.password,
+            'HOST': url.hostname,
+            'PORT': url.port or '',
+            'CONN_MAX_AGE': CONN_MAX_AGE,
+            'OPTIONS': {},
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'iptv_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+            'CONN_MAX_AGE': CONN_MAX_AGE,
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -114,9 +143,9 @@ if USE_S3:
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 AUTH_USER_MODEL = 'api.CustomUser'
 
+# REST framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -154,37 +183,52 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:80').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
-RQ_QUEUES = {
-    'default': {
-        'HOST': os.environ.get('REDIS_HOST', 'localhost'),
-        'PORT': int(os.environ.get('REDIS_PORT', 6379)),
-        'DB': int(os.environ.get('REDIS_DB', 0)),
-        'DEFAULT_TIMEOUT': 360,
-    }
-}
-
-REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
-REDIS_DB = int(os.environ.get('REDIS_DB', 0))
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://{host}:{port}/1'.format(
-            host=os.environ.get('REDIS_HOST', 'localhost'),
-            port=os.environ.get('REDIS_PORT', 6379),
-        ),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+# Redis/Cache configuration: prefer REDIS_URL if provided (Upstash-friendly)
+REDIS_URL = os.environ.get('REDIS_URL')
+if REDIS_URL:
+    # Use the provided redis URL directly for django-redis
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+            }
         }
     }
-}
+    # RQ queue config using the same URL
+    RQ_QUEUES = {
+        'default': {
+            'URL': REDIS_URL,
+            'DEFAULT_TIMEOUT': int(os.environ.get('RQ_DEFAULT_TIMEOUT', 360)),
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': 'redis://{host}:{port}/1'.format(
+                host=os.environ.get('REDIS_HOST', 'localhost'),
+                port=os.environ.get('REDIS_PORT', 6379),
+            ),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+            }
+        }
+    }
+    RQ_QUEUES = {
+        'default': {
+            'HOST': os.environ.get('REDIS_HOST', 'localhost'),
+            'PORT': int(os.environ.get('REDIS_PORT', 6379)),
+            'DB': int(os.environ.get('REDIS_DB', 0)),
+            'DEFAULT_TIMEOUT': int(os.environ.get('RQ_DEFAULT_TIMEOUT', 360)),
+        }
+    }
 
 FERNET_KEY = os.environ.get('FERNET_KEY', '')
-
 if not FERNET_KEY:
-    import warnings
     warnings.warn(
         'FERNET_KEY is not set. Password encryption/decryption will fail in production.',
         RuntimeWarning,
@@ -193,3 +237,9 @@ if not FERNET_KEY:
 
 RATE_LIMIT_PURCHASE = int(os.environ.get('RATE_LIMIT_PURCHASE', 5))
 ASYNC_THRESHOLD = int(os.environ.get('ASYNC_THRESHOLD', 10))
+
+# Helpful deployment hints (not used programmatically):
+# - In production set DEBUG=False, DJANGO_SECRET_KEY and FERNET_KEY.
+# - Provide DATABASE_URL for Neon: postgres://user:pass@host:port/dbname
+# - Provide REDIS_URL for Upstash: rediss://:<token>@<host>:<port>
+# - Use CONN_MAX_AGE=0 for serverless Postgres or configure pooling as recommended by Neon
