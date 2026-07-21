@@ -10,5 +10,6 @@ exec gunicorn config.wsgi:application \
     --workers 4 \
     --threads 2 \
     --timeout 120 \
+    --capture-output \
     --access-logfile - \
     --error-logfile -
