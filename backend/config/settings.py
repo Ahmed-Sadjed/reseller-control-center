@@ -80,7 +80,7 @@ if DATABASE_URL:
     opts = {}
     if url.query:
         qs = parse_qs(url.query)
-        for key in ('sslmode', 'connect_timeout', 'keepalives', 'keepalives_idle'):
+        for key in ('sslmode', 'channel_binding', 'connect_timeout', 'keepalives', 'keepalives_idle'):
             if key in qs:
                 opts[key] = qs[key][0]
     DATABASES = {
