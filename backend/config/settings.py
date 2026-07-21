@@ -244,6 +244,28 @@ if not FERNET_KEY:
 RATE_LIMIT_PURCHASE = int(os.environ.get('RATE_LIMIT_PURCHASE', 5))
 ASYNC_THRESHOLD = int(os.environ.get('ASYNC_THRESHOLD', 10))
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+
 # Helpful deployment hints (not used programmatically):
 # - In production set DEBUG=False, DJANGO_SECRET_KEY and FERNET_KEY.
 # - Provide DATABASE_URL for Neon: postgres://user:pass@host:port/dbname
