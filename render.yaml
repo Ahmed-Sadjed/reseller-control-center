@@ -26,6 +26,12 @@ services:
         sync: false
       - key: FERNET_KEY
         sync: false
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
@@ -62,6 +68,12 @@ services:
       - key: DJANGO_SECRET_KEY
         sync: false
       - key: FERNET_KEY
+        sync: false
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
         sync: false
       - key: DEBUG
         value: "False"
