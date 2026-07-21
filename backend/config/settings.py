@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 import warnings
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -75,8 +75,14 @@ ASGI_APPLICATION = 'config.asgi.application'
 DATABASE_URL = os.environ.get('DATABASE_URL')
 CONN_MAX_AGE = int(os.environ.get('CONN_MAX_AGE', 60))
 if DATABASE_URL:
-    # DATABASE_URL like: postgres://user:pass@host:port/dbname
+    # DATABASE_URL like: postgres://user:pass@host:port/dbname?sslmode=require
     url = urlparse(DATABASE_URL)
+    opts = {}
+    if url.query:
+        qs = parse_qs(url.query)
+        for key in ('sslmode', 'connect_timeout', 'keepalives', 'keepalives_idle'):
+            if key in qs:
+                opts[key] = qs[key][0]
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -86,7 +92,7 @@ if DATABASE_URL:
             'HOST': url.hostname,
             'PORT': url.port or '',
             'CONN_MAX_AGE': CONN_MAX_AGE,
-            'OPTIONS': {},
+            'OPTIONS': opts,
         }
     }
 else:
