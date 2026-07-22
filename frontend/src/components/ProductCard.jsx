@@ -415,6 +415,23 @@ export default function ProductCard({ product, onError }) {
 
               {(isGoldenApi || isRedfoxx) && (
                 <>
+                  {isGoldenApi && templates.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Template <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                      >
+                        <option value="">Select a template</option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Username <span className="text-gray-400 font-normal">(optional, auto-generated)</span>
