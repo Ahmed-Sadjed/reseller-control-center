@@ -143,8 +143,9 @@ if USE_S3:
     AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
     AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', '')
     AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', '')
-    AWS_DEFAULT_ACL = os.environ.get('AWS_DEFAULT_ACL', 'private')
+    AWS_DEFAULT_ACL = os.environ.get('AWS_DEFAULT_ACL')
     AWS_QUERYSTRING_AUTH = os.environ.get('AWS_QUERYSTRING_AUTH', 'True').lower() in ('true', '1', 'yes')
+    AWS_QUERYSTRING_EXPIRE = int(os.environ.get('AWS_QUERYSTRING_EXPIRE', '3600'))
     AWS_S3_FILE_OVERWRITE = False
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
