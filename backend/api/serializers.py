@@ -74,7 +74,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_thumbnail_url(self, obj):
         try:
-            return obj.thumbnail.url if obj.image else None
+            return obj.image.url if obj.image else None
         except Exception:
             return None
 

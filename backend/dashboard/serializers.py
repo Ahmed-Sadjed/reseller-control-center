@@ -373,9 +373,9 @@ class ProductListSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj):
         if obj.image:
             try:
-                return obj.thumbnail.url
-            except Exception:
                 return obj.image.url
+            except Exception:
+                return None
         return None
 
     def get_variants(self, obj):
