@@ -91,7 +91,6 @@ class GoldPanelAdapter(BaseProviderAdapter):
         return {
             'external_id': user_id,
             'credentials': {
-                'action': 'create_m3u',
                 'username': streaming_username,
                 'secret_password': password,
                 'dns_domain': self.dns_domain,

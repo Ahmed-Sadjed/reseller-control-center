@@ -92,7 +92,6 @@ class CMSOnlyAdapter(BaseProviderAdapter):
         return {
             'external_id': username,
             'credentials': {
-                'action': 'create_m3u',
                 'username': streaming_username,
                 'secret_password': password,
                 'dns_domain': self.dns_domain,

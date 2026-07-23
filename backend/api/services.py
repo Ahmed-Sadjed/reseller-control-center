@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 from .models import CustomUser, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
-from .utils import encrypt_password
+from .utils import encrypt_password, extract_base_url
 from .providers import get_adapter_for_provider
 
 
@@ -96,14 +96,15 @@ def fulfill_sync(order: Order, provider=None, mac='', note='', username='', pass
 
             external_username = result.get('external_id', '')
             streaming_username = cred_data.get('username', cred_data.get('mac', external_username))
+            m3u_url = cred_data.get('m3u_url', '')
 
             cred = Credential.objects.create(
                 order=order,
                 external_username=external_username,
                 streaming_username=streaming_username,
                 encrypted_password=encrypt_password(secret_password),
-                dns_domain=cred_data.get('dns_domain', ''),
-                m3u_url=cred_data.get('m3u_url', ''),
+                dns_domain=extract_base_url(m3u_url) or cred_data.get('dns_domain', ''),
+                m3u_url=m3u_url,
                 data=non_secret_data,
                 expires_at=result.get('expires_at'),
             )

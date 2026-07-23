@@ -28,7 +28,6 @@ class TiviPanelAdapter(BaseProviderAdapter):
         self.port = provider.extra_config.get('port', 8080)
         timeout = provider.extra_config.get('timeout', 30)
         self.timeout = (timeout / 2, timeout)
-        self.panel_url = provider.extra_config.get('panel_url', 'https://api.tivipanel.net')
 
     @property
     def capabilities(self) -> set:
@@ -95,7 +94,6 @@ class TiviPanelAdapter(BaseProviderAdapter):
                 'secret_password': password,
                 'dns_domain': self.dns_domain,
                 'm3u_url': m3u_url,
-                'panel_url': self.panel_url,
             },
             'expires_at': expires_at,
             'raw_response': data,
