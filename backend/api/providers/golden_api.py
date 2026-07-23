@@ -18,7 +18,7 @@ class GoldenAPIAdapter(BaseProviderAdapter):
 
     @property
     def capabilities(self) -> set:
-        return {'create', 'renew', 'check', 'refund'}
+        return {'create', 'renew'}
 
     def _request(self, method, path, **kwargs):
         headers = kwargs.pop('headers', {})
@@ -142,44 +142,6 @@ class GoldenAPIAdapter(BaseProviderAdapter):
             'expires_at': expires_at,
             'raw_response': data,
         }
-
-    def check_device(self, mac: str, credential=None) -> dict:
-        if not credential:
-            raise ProviderAPIError("Credential is required for GoldenAPI check_device.")
-        
-        line_id = credential.data.get('line_id')
-        if not line_id:
-            raise ProviderAPIError("Credential is required for GoldenAPI check_device.")
-        
-        logger.info("GoldenAPI check_device for line_id=%s", line_id)
-        data = self._request('GET', f'/lines/{line_id}')
-        return data
-
-    def activate_device(self, mac: str, pack_id: int, duration: str, extend: bool = False, credential=None) -> dict:
-        if not extend:
-            raise ProviderAPIError("GoldenAPI only supports extend for activate_device.")
-        if not credential:
-            raise ProviderAPIError("Credential is required for GoldenAPI extend.")
-        
-        line_id = credential.data.get('line_id')
-        if not line_id:
-            raise ProviderAPIError("Missing line_id in credential data.")
-
-        payload = {
-            "package_id": pack_id
-        }
-        logger.info("GoldenAPI extend: line_id=%s, package_id=%s", line_id, pack_id)
-        data = self._request('POST', f'/lines/{line_id}/extend', json=payload)
-        return data
-
-    def refund(self, credential) -> dict:
-        line_id = credential.data.get('line_id')
-        if not line_id:
-            raise ProviderAPIError("Missing line_id in credential data.")
-
-        logger.info("GoldenAPI refund: line_id=%s", line_id)
-        data = self._request('POST', f'/lines/{line_id}/refund', json={"mass_refund": False})
-        return data
 
     def get_templates(self) -> list:
         """Fetch available bouquet templates from Golden OTT."""

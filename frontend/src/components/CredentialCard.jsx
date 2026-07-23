@@ -176,14 +176,6 @@ export default function CredentialCard({ credential, index }) {
         >
           Download .txt
         </button>
-        {providerKey === 'golden_api' && (
-          <button
-            onClick={() => navigate(`/credentials/${credential.id}/line-manager`)}
-            className="px-3 py-2 text-sm font-medium text-white bg-purple-600 rounded hover:bg-purple-700 transition-colors"
-          >
-            Manage Line
-          </button>
-        )}
       </div>
     </div>
   );

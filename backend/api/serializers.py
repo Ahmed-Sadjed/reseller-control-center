@@ -215,15 +215,6 @@ class CredentialSerializer(serializers.ModelSerializer):
         return {}
 
 
-class DeviceActivateSerializer(serializers.Serializer):
-    pack_id = serializers.IntegerField()
-    duration = serializers.ChoiceField(choices=[
-        'MONTHS_1', 'MONTHS_3', 'MONTHS_6',
-        'MONTHS_12', 'YEAR_1', 'FOREVER',
-    ])
-    extend = serializers.BooleanField(default=False)
-
-
 class CredentialListSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='streaming_username')
     url = serializers.SerializerMethodField()

@@ -8,7 +8,7 @@ from django.urls import path
 from django.contrib import messages
 from django.template.response import TemplateResponse
 from .models import CustomUser, Provider, Category, Product, ProductVariant, Order, Credential, CreditTransaction, IdempotencyKey, QuarantinedCredential
-from .device_services import check_device, get_credential_for_user
+
 from .providers import get_adapter_for_provider, ADAPTER_REGISTRY
 
 

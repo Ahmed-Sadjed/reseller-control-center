@@ -362,8 +362,6 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
         caps = self.adapter.capabilities
         self.assertIn('create', caps)
         self.assertIn('renew', caps)
-        self.assertIn('check', caps)
-        self.assertIn('refund', caps)
 
     @patch('api.providers.golden_api.requests.request')
     def test_create_returns_standard_format(self, mock_request):
@@ -484,75 +482,7 @@ class TestGoldenAPIAdapter(TestCase, StandardFormatMixin):
         self.assertEqual(payload['username'], 'testuser')
         self.assertEqual(payload['password'], 'testpass')
 
-    def test_check_device_without_credential_raises(self):
-        credential = MagicMock()
-        credential.data = {}
-        with self.assertRaises(Exception):
-            self.adapter.check_device(mac='00:1A:79:AB:CD:EF', credential=credential)
 
-    @patch('api.providers.golden_api.requests.request')
-    def test_check_device_with_line_id(self, mock_request):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'id': 42, 'status': 'active', 'exp_date': '2027-07-11'}
-        mock_response.raise_for_status = MagicMock()
-        mock_request.return_value = mock_response
-
-        credential = MagicMock()
-        credential.data = {'line_id': 42}
-        result = self.adapter.check_device(mac='00:1A:79:AB:CD:EF', credential=credential)
-        self.assertEqual(result['id'], 42)
-
-    @patch('api.providers.golden_api.requests.request')
-    def test_extend_device(self, mock_request):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'id': 42, 'status': 'active', 'exp_date': '2028-07-11'}
-        mock_response.raise_for_status = MagicMock()
-        mock_request.return_value = mock_response
-
-        credential = MagicMock()
-        credential.data = {'line_id': 42}
-        result = self.adapter.activate_device(
-            mac='00:1A:79:AB:CD:EF', pack_id=5, duration='12_months',
-            extend=True, credential=credential
-        )
-        self.assertEqual(result['id'], 42)
-
-    def test_extend_without_extend_flag_raises(self):
-        credential = MagicMock()
-        credential.data = {'line_id': 42}
-        with self.assertRaises(Exception):
-            self.adapter.activate_device(
-                mac='00:1A:79:AB:CD:EF', pack_id=5, duration='12_months',
-                extend=False, credential=credential
-            )
-
-    def test_extend_without_credential_raises(self):
-        with self.assertRaises(Exception):
-            self.adapter.activate_device(
-                mac='00:1A:79:AB:CD:EF', pack_id=5, duration='12_months',
-                extend=True, credential=None
-            )
-
-    def test_refund_without_line_id_raises(self):
-        credential = MagicMock()
-        credential.data = {}
-        with self.assertRaises(Exception):
-            self.adapter.refund(credential=credential)
-
-    @patch('api.providers.golden_api.requests.request')
-    def test_refund_success(self, mock_request):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'id': 42, 'status': 'refunded'}
-        mock_response.raise_for_status = MagicMock()
-        mock_request.return_value = mock_response
-
-        credential = MagicMock()
-        credential.data = {'line_id': 42}
-        result = self.adapter.refund(credential=credential)
-        self.assertEqual(result['status'], 'refunded')
 
 
 class TestTiviPanelAdapter(TestCase, StandardFormatMixin):

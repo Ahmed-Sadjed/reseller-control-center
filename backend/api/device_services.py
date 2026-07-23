@@ -1,78 +1,11 @@
-from decimal import Decimal
 from datetime import datetime, timezone
-from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import Credential, ProductVariant, CustomUser, CreditTransaction, Provider
+from .models import Credential, Provider
 from .providers import get_adapter_for_provider
-
-
-class InsufficientCredits(Exception):
-    pass
-
-
-class NoMatchingVariant(Exception):
-    pass
 
 
 def get_credential_for_user(credential_id, user):
     return get_object_or_404(Credential, id=credential_id, order__reseller=user)
-
-
-def activate_device(credential_id, user, pack_id, duration, extend=False, quantity=1):
-    credential = get_credential_for_user(credential_id, user)
-    adapter = get_adapter_for_provider(credential.order.product.provider)
-    mac = credential.streaming_username or credential.external_username
-
-    variant = ProductVariant.objects.filter(
-        product=credential.order.product,
-        external_pack_id=pack_id,
-        is_active=True,
-    ).first()
-    if not variant:
-        raise NoMatchingVariant(f"No active variant found for pack_id={pack_id}")
-
-    total = variant.price_in_credits * Decimal(str(quantity))
-
-    with transaction.atomic():
-        reseller = CustomUser.objects.select_for_update().get(id=user.id)
-        if reseller.credit_balance < total:
-            raise InsufficientCredits(
-                f"Insufficient credits. Required: {total}, Available: {reseller.credit_balance}"
-            )
-        reseller.credit_balance -= total
-        reseller.save()
-        CreditTransaction.objects.create(
-            reseller=reseller,
-            delta=-total,
-            balance_after=reseller.credit_balance,
-            actor=CreditTransaction.Actor.RESELLER,
-            reason=f"Device activation/extend for MAC {mac} (credential #{credential_id})",
-        )
-
-    try:
-        result = adapter.activate_device(mac, pack_id, duration, extend, credential=credential)
-    except Exception:
-        with transaction.atomic():
-            reseller = CustomUser.objects.select_for_update().get(id=user.id)
-            reseller.credit_balance += total
-            reseller.save()
-            CreditTransaction.objects.create(
-                reseller=reseller,
-                delta=total,
-                balance_after=reseller.credit_balance,
-                actor=CreditTransaction.Actor.SYSTEM,
-                reason=f"Refund for failed device activation (MAC {mac})",
-            )
-        raise
-
-    return {'result': result, 'credential': credential, 'variant': variant}
-
-
-def check_device(credential_id, user):
-    credential = get_credential_for_user(credential_id, user)
-    adapter = get_adapter_for_provider(credential.order.product.provider)
-    mac = credential.streaming_username or credential.external_username
-    return adapter.check_device(mac, credential=credential)
 
 
 def check_device_by_mac(mac, user):
@@ -149,39 +82,3 @@ def check_device_by_mac(mac, user):
         'status': status,
     }
 
-
-def refund_device(credential_id, user):
-    credential = get_credential_for_user(credential_id, user)
-    adapter = get_adapter_for_provider(credential.order.product.provider)
-    
-    if 'refund' not in adapter.capabilities:
-        raise NotImplementedError(f"Refund not supported by {credential.order.product.provider.name}")
-
-    with transaction.atomic():
-        # Call provider refund
-        result = adapter.refund(credential)
-        
-        order = credential.order
-        total = order.total_credits
-        
-        # Refund credits to user
-        reseller = CustomUser.objects.select_for_update().get(id=user.id)
-        reseller.credit_balance += total
-        reseller.save()
-        
-        CreditTransaction.objects.create(
-            reseller=reseller,
-            delta=total,
-            balance_after=reseller.credit_balance,
-            actor=CreditTransaction.Actor.SYSTEM,
-            reason=f"Refund for order #{order.uuid}",
-        )
-        
-        # Update statuses
-        order.status = 'REFUNDED'
-        order.save()
-        
-        credential.is_revoked = True
-        credential.save()
-        
-    return {'result': result, 'credential': credential, 'refunded_credits': total}

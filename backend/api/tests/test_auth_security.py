@@ -191,20 +191,6 @@ class TestCredentialOwnership(AuthTestBase):
         )
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_credential_device_status_other_user_returns_400(self):
-        _, cred = self._create_order(self.reseller)
-        resp = self.reseller2_client.get(
-            reverse('credential-device-status', kwargs={'credential_id': cred.id}),
-        )
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_credential_device_activate_other_user_returns_400(self):
-        _, cred = self._create_order(self.reseller)
-        resp = self.reseller2_client.post(
-            reverse('credential-device-activate', kwargs={'credential_id': cred.id}),
-            {'pack_id': 1, 'duration': 'MONTHS_1'},
-        )
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class TestUnauthenticatedAccess(AuthTestBase):

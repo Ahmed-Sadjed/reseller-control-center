@@ -8,7 +8,6 @@ import ProductsPage from './pages/ProductsPage';
 import ReceiptPage from './pages/ReceiptPage';
 import ProcessingPage from './pages/ProcessingPage';
 import OrdersHistory from './pages/OrdersHistory';
-import LineManagerPage from './pages/LineManagerPage';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -131,15 +130,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/credentials/:credentialId/line-manager"
-            element={
-              <ProtectedRoute>
-                <LineManagerPage />
-              </ProtectedRoute>
-            }
-          />
-
           {/* ── Admin Routes ── */}
           <Route
             path="/admin"

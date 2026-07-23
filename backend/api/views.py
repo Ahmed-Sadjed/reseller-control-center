@@ -23,17 +23,11 @@ from .serializers import (
     UserProfileSerializer, CategorySerializer, ProductSerializer,
     PurchaseSerializer, OrderListSerializer, OrderDetailSerializer,
     CredentialSerializer, CredentialListSerializer, OrderStatusSerializer,
-    DeviceActivateSerializer,
 )
 from .services import reserve_phase, fulfill_sync, check_idempotency, InsufficientCredits
 from .tasks import fulfill_order_async
 from .device_services import (
-    activate_device as device_activate,
-    check_device as device_check,
     check_device_by_mac,
-    refund_device as device_refund,
-    InsufficientCredits as DeviceInsufficientCredits,
-    NoMatchingVariant,
 )
 
 
@@ -373,64 +367,6 @@ class CredentialListView(APIView):
 
 
 MAC_REGEX = re.compile(r'^([0-9A-Za-z]{2}:){5}[0-9A-Za-z]{2}$')
-
-
-class CredentialDeviceStatusView(APIView):
-    def get(self, request, credential_id):
-        try:
-            data = device_check(credential_id, request.user)
-            return Response(data)
-        except NotImplementedError as e:
-            return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CredentialDeviceActivateView(APIView):
-    throttle_classes = [PurchaseThrottle]
-
-    def post(self, request, credential_id):
-        serializer = DeviceActivateSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        mac = None
-        try:
-            credential = get_object_or_404(Credential, id=credential_id, order__reseller=request.user)
-            mac = credential.streaming_username or credential.external_username
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not mac or not MAC_REGEX.match(mac):
-            return Response({'error': 'Invalid MAC address on credential.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            result = device_activate(
-                credential_id, request.user,
-                pack_id=serializer.validated_data['pack_id'],
-                duration=serializer.validated_data['duration'],
-                extend=serializer.validated_data.get('extend', False),
-            )
-            return Response(result, status=status.HTTP_200_OK)
-        except DeviceInsufficientCredits as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except NoMatchingVariant as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except NotImplementedError as e:
-            return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CredentialDeviceRefundView(APIView):
-    def post(self, request, credential_id):
-        try:
-            result = device_refund(credential_id, request.user)
-            return Response(result, status=status.HTTP_200_OK)
-        except NotImplementedError as e:
-            return Response({'error': str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CheckDeviceView(APIView):
