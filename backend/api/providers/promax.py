@@ -108,7 +108,7 @@ class PromaxAdapter(BaseProviderAdapter):
                 'username': streaming_username,
                 'secret_password': password,
                 'm3u_url': m3u_url,
-                'panel_url': 'https://api.promax-dash.com',
+                'dns_domain': self.provider.extra_config.get('dns_domain', ''),
             },
             'expires_at': expires_at,
             'raw_response': data,
