@@ -163,7 +163,7 @@ export default function CredentialCard({ credential, index }) {
       <div className="space-y-2">
         {hasSchema ? fields.map(renderField) : renderLegacy()}
       </div>
-      <div className="mt-4 flex space-x-3">
+      <div className="mt-4 flex flex-col sm:flex-row gap-2.5">
         <button
           onClick={handleCopyAll}
           className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors"

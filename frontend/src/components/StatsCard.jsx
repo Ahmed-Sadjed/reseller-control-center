@@ -6,7 +6,7 @@ export default function StatsCard({ stats }) {
     { label: 'My Credits', value: stats.credit_balance, color: 'bg-indigo-500' },
   ];
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {items.map((item) => (
         <div key={item.label} className="bg-white rounded-lg shadow p-4 flex items-center space-x-3">
           <div className={`${item.color} w-1 h-12 rounded-full`} />

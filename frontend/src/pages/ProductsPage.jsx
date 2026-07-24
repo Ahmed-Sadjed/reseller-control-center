@@ -94,7 +94,7 @@ export default function ProductsPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Products</h1>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full">
           <div className="flex-1">
             <input
               type="text"

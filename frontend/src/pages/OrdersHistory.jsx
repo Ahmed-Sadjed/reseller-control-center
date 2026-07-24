@@ -64,7 +64,48 @@ export default function OrdersHistory() {
         ) : orders.length === 0 ? (
           <div className="text-center py-12 text-gray-500">No orders yet.</div>
         ) : (
-          <div className="bg-white shadow overflow-hidden rounded-lg">
+          <>
+          <div className="block md:hidden space-y-3">
+            {orders.map((order) => (
+              <div key={order.id} className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono text-gray-500">{order.uuid.substring(0, 8)}...</span>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
+                    {order.status}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Product</span>
+                    <span className="text-gray-900 text-right">{order.product_name_at_purchase}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Qty</span>
+                    <span className="text-gray-900">{order.quantity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Total</span>
+                    <span className="text-gray-900">{order.total_credits}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Date</span>
+                    <span className="text-gray-500">{new Date(order.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                {order.status === 'COMPLETED' && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <Link
+                      to={`/receipt/${order.uuid}`}
+                      className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    >
+                      View Receipt &rarr;
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block bg-white shadow overflow-hidden rounded-lg">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -109,6 +150,7 @@ export default function OrdersHistory() {
               </tbody>
             </table>
           </div>
+        </>
         )}
       </div>
     </Layout>
