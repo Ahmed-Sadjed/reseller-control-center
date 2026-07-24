@@ -84,20 +84,20 @@ export default function AdminManualProducts() {
                 ) : (
                   products.map(p => (
                     <tr key={p.id}>
-                      <td style={{ fontWeight: 600 }}>{p.name}</td>
-                      <td>
+                      <td data-label="Product Name" style={{ fontWeight: 600 }}>{p.name}</td>
+                      <td data-label="Type">
                         <span className={`admin-badge ${p.credential_type === 'username_password' ? 'blue' : 'amber'}`}>
                           {typeLabel(p.credential_type)}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 500 }}>{p.total_credentials || 0}</td>
-                      <td>
+                      <td data-label="Total" style={{ fontWeight: 500 }}>{p.total_credentials || 0}</td>
+                      <td data-label="Available">
                         <span style={{ color: '#059669', fontWeight: 600 }}>
                           {p.available_credentials || 0}
                         </span>
                       </td>
-                      <td style={{ color: '#64748b' }}>{p.used_credentials || 0}</td>
-                      <td>
+                      <td data-label="Used" style={{ color: '#64748b' }}>{p.used_credentials || 0}</td>
+                      <td data-label="Actions">
                         <Link to={`/admin/products/${p.id}`} className="admin-btn admin-btn-primary admin-btn-sm">
                           Manage
                         </Link>

@@ -260,13 +260,13 @@ export default function AdminResellerDetail() {
                     ) : (
                       orders.map(o => (
                         <tr key={o.id}>
-                          <td style={{ fontSize: 12, color: '#6366f1', fontFamily: 'monospace' }}>
+                          <td data-label="Order" style={{ fontSize: 12, color: '#6366f1', fontFamily: 'monospace' }}>
                             {o.uuid?.slice(0, 8)}
                           </td>
-                          <td style={{ fontWeight: 500 }}>{o.product_name_at_purchase}</td>
-                          <td>{o.quantity}</td>
-                          <td style={{ fontWeight: 500 }}>{formatCredits(o.total_credits)}</td>
-                          <td>
+                          <td data-label="Product" style={{ fontWeight: 500 }}>{o.product_name_at_purchase}</td>
+                          <td data-label="Qty">{o.quantity}</td>
+                          <td data-label="Amount" style={{ fontWeight: 500 }}>{formatCredits(o.total_credits)}</td>
+                          <td data-label="Status">
                             <span className={`admin-badge ${
                               o.status === 'COMPLETED' ? 'green' :
                               o.status === 'FAILED' ? 'red' :
@@ -275,7 +275,7 @@ export default function AdminResellerDetail() {
                               {o.status}
                             </span>
                           </td>
-                          <td style={{ fontSize: 13, color: '#64748b' }}>
+                          <td data-label="Date" style={{ fontSize: 13, color: '#64748b' }}>
                             {new Date(o.created_at).toLocaleString()}
                           </td>
                         </tr>
@@ -308,24 +308,24 @@ export default function AdminResellerDetail() {
                     ) : (
                       transactions.map(t => (
                         <tr key={t.id}>
-                          <td style={{ fontSize: 13, color: '#64748b' }}>
+                          <td data-label="Date" style={{ fontSize: 13, color: '#64748b' }}>
                             {new Date(t.created_at).toLocaleString()}
                           </td>
-                          <td style={{
+                          <td data-label="Amount" style={{
                             fontWeight: 600,
                             color: Number(t.delta) >= 0 ? '#059669' : '#dc2626',
                           }}>
                             {Number(t.delta) >= 0 ? '+' : ''}{formatCredits(t.delta)}
                           </td>
-                          <td>
+                          <td data-label="Type">
                             <span className={`admin-badge ${t.actor === 'ADMIN' ? 'blue' : t.actor === 'SYSTEM' ? 'gray' : 'amber'}`}>
                               {t.actor}
                             </span>
                           </td>
-                          <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td data-label="Reason" style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {t.reason}
                           </td>
-                          <td style={{ fontWeight: 500 }}>{formatCredits(t.balance_after)}</td>
+                          <td data-label="Balance" style={{ fontWeight: 500 }}>{formatCredits(t.balance_after)}</td>
                         </tr>
                       ))
                     )}

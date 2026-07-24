@@ -460,19 +460,19 @@ export default function AdminProducts() {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <select className="admin-select" style={{ width: 140 }} value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <select className="admin-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
               <option value="">All Types</option>
               <option value="manual">Manual</option>
               <option value="api">API</option>
               <option value="whatsapp">WhatsApp</option>
             </select>
-            <select className="admin-select" style={{ width: 160 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <select className="admin-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
               <option value="">All Categories</option>
               {categories.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            <select className="admin-select" style={{ width: 130 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <select className="admin-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -516,35 +516,35 @@ export default function AdminProducts() {
                     const t = typeLabel(p);
                     return (
                       <tr key={p.id}>
-                        <td>
+                        <td data-label="Img">
                           {p.image_url ? (
                             <img src={p.image_url} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover' }} />
                           ) : (
                             <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>
                           )}
                         </td>
-                        <td style={{ fontWeight: 600 }}>{p.name}</td>
-                        <td>
+                        <td data-label="Name" style={{ fontWeight: 600 }}>{p.name}</td>
+                        <td data-label="Type">
                           <span className={`admin-badge ${t.class}`}>{t.label}</span>
                           {p.is_manual && p.credential_type && (
                             <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 4 }}>({credTypeLabel(p.credential_type)})</span>
                           )}
                         </td>
-                        <td style={{ color: '#64748b' }}>{p.category_name || '—'}</td>
-                        <td style={{ color: '#64748b' }}>{p.provider_name || '—'}</td>
-                        <td style={{ fontWeight: 500 }}>
+                        <td data-label="Category" style={{ color: '#64748b' }}>{p.category_name || '—'}</td>
+                        <td data-label="Provider" style={{ color: '#64748b' }}>{p.provider_name || '—'}</td>
+                        <td data-label="Price" style={{ fontWeight: 500 }}>
                           {p.variants?.length > 0
                             ? `${Math.min(...p.variants.map(v => Number(v.price_in_credits)))}–${Math.max(...p.variants.map(v => Number(v.price_in_credits)))}`
                             : p.price_in_credits ? `${p.price_in_credits}` : '—'
                           }
-                        </td>
-                        <td>
+</td>
+                        <td data-label="Status">
                           <span className={`admin-badge ${p.is_active ? 'green' : 'red'}`}>
                             {p.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td style={{ fontSize: 13, color: '#64748b' }}>{p.variant_count || 0}</td>
-                        <td>
+                        <td data-label="Variants" style={{ fontSize: 13, color: '#64748b' }}>{p.variant_count || 0}</td>
+                        <td data-label="Actions">
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="admin-btn admin-btn-sm admin-btn-secondary" title="Edit" onClick={() => openEditProduct(p)}>✏️</button>
                             <button className="admin-btn admin-btn-sm admin-btn-secondary" title="Variants" onClick={() => openVariantManager(p)}>🔀</button>
@@ -602,16 +602,16 @@ export default function AdminProducts() {
               ) : (
                 categories.map(c => (
                   <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>{c.name}</td>
-                    <td style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13 }}>{c.slug}</td>
-                    <td>{c.sort_order}</td>
-                    <td style={{ fontWeight: 500 }}>{c.product_count || 0}</td>
-                    <td>
+                    <td data-label="Name" style={{ fontWeight: 600 }}>{c.name}</td>
+                    <td data-label="Slug" style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13 }}>{c.slug}</td>
+                    <td data-label="Sort">{c.sort_order}</td>
+                    <td data-label="Products" style={{ fontWeight: 500 }}>{c.product_count || 0}</td>
+                    <td data-label="Status">
                       <span className={`admin-badge ${c.is_active ? 'green' : 'red'}`}>
                         {c.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Actions">
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="admin-btn admin-btn-sm admin-btn-secondary" onClick={() => openEditCategory(c)}>✏️</button>
                         <button className="admin-btn admin-btn-sm admin-btn-danger" onClick={() => handleDeleteCategory(c)}>🗑️</button>

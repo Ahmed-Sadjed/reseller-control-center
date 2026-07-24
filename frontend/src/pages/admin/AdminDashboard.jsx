@@ -130,15 +130,15 @@ export default function AdminDashboard() {
                 ) : (
                   topResellers.map((r, i) => (
                     <tr key={r.id}>
-                      <td style={{ fontWeight: 600, color: '#6366f1' }}>{i + 1}</td>
-                      <td>
+                      <td data-label="#" style={{ fontWeight: 600, color: '#6366f1' }}>{i + 1}</td>
+                      <td data-label="Username">
                         <Link to={`/admin/resellers/${r.id}`} style={{ color: '#1e293b', fontWeight: 500, textDecoration: 'none' }}>
                           {r.username}
                         </Link>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{formatCredits(r.total_revenue)}</td>
-                      <td>{formatNumber(r.order_count)}</td>
-                      <td>
+                      <td data-label="Revenue" style={{ fontWeight: 600 }}>{formatCredits(r.total_revenue)}</td>
+                      <td data-label="Orders">{formatNumber(r.order_count)}</td>
+                      <td data-label="Status">
                         <span className={`admin-badge ${r.is_active ? 'green' : 'red'}`}>
                           {r.is_active ? '● Active' : '● Inactive'}
                         </span>

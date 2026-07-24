@@ -118,7 +118,6 @@ export default function AdminActivationCodes() {
             />
             <select
               className="admin-select"
-              style={{ width: 200 }}
               value={productFilter}
               onChange={e => setProductFilter(e.target.value)}
             >
@@ -129,7 +128,6 @@ export default function AdminActivationCodes() {
             </select>
             <select
               className="admin-select"
-              style={{ width: 150 }}
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
             >
@@ -176,13 +174,13 @@ export default function AdminActivationCodes() {
                 ) : (
                   credentials.map(c => (
                     <tr key={c.id}>
-                      <td style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                      <td data-label="Credential" style={{ fontFamily: 'monospace', fontWeight: 500 }}>
                         {c.credential_type === 'username_password'
                           ? c.username
                           : (c.code?.length > 25 ? c.code.slice(0, 25) + '...' : c.code)
                         }
                       </td>
-                      <td>
+                      <td data-label="Product">
                         <Link
                           to={`/admin/products/${c.product}`}
                           style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 500 }}
@@ -190,12 +188,12 @@ export default function AdminActivationCodes() {
                           {c.product_name}
                         </Link>
                       </td>
-                      <td>
+                      <td data-label="Type">
                         <span className={`admin-badge ${c.credential_type === 'username_password' ? 'blue' : 'amber'}`}>
                           {c.credential_type === 'username_password' ? 'U:P' : 'Code'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`admin-badge ${
                           c.status === 'available' ? 'green' :
                           c.status === 'used' ? 'gray' : 'red'
@@ -203,11 +201,11 @@ export default function AdminActivationCodes() {
                           {c.status}
                         </span>
                       </td>
-                      <td>{c.assigned_to_username || '—'}</td>
-                      <td style={{ fontSize: 13, color: '#64748b' }}>
+                      <td data-label="Assigned To">{c.assigned_to_username || '—'}</td>
+                      <td data-label="Created" style={{ fontSize: 13, color: '#64748b' }}>
                         {new Date(c.created_at).toLocaleDateString()}
                       </td>
-                      <td>
+                      <td data-label="Actions">
                         <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDelete(c.id)}>
                           🗑️
                         </button>

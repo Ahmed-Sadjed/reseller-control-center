@@ -109,7 +109,6 @@ export default function AdminResellers() {
             />
             <select
               className="admin-select"
-              style={{ width: 160 }}
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
             >
@@ -153,23 +152,23 @@ export default function AdminResellers() {
                   ) : (
                     resellers.map(r => (
                       <tr key={r.id}>
-                        <td>
+                        <td data-label="Username">
                           <Link to={`/admin/resellers/${r.id}`} style={{ color: '#1e293b', fontWeight: 600, textDecoration: 'none' }}>
                             {r.username}
                           </Link>
                         </td>
-                        <td style={{ fontWeight: 500 }}>{formatCredits(r.credit_balance)}</td>
-                        <td>{r.order_count || 0}</td>
-                        <td style={{ fontWeight: 500 }}>{formatCredits(r.total_revenue)}</td>
-                        <td>
+                        <td data-label="Credits" style={{ fontWeight: 500 }}>{formatCredits(r.credit_balance)}</td>
+                        <td data-label="Orders">{r.order_count || 0}</td>
+                        <td data-label="Revenue" style={{ fontWeight: 500 }}>{formatCredits(r.total_revenue)}</td>
+                        <td data-label="Status">
                           <span className={`admin-badge ${r.is_active ? 'green' : 'red'}`}>
                             {r.is_active ? '● Active' : '● Inactive'}
                           </span>
                         </td>
-                        <td style={{ color: '#64748b', fontSize: 13 }}>
+                        <td data-label="Joined" style={{ color: '#64748b', fontSize: 13 }}>
                           {new Date(r.date_joined).toLocaleDateString()}
                         </td>
-                        <td>
+                        <td data-label="Actions">
                           <div style={{ display: 'flex', gap: 6 }}>
                             <Link to={`/admin/resellers/${r.id}`} className="admin-btn admin-btn-secondary admin-btn-sm">
                               View

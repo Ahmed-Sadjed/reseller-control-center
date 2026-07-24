@@ -951,3 +951,208 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Table-to-Card, Filter & Grid Fixes
+   ═══════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+  /* ── Stat Cards: 2 cols on mobile ── */
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* ── Profile Grid: single column ── */
+  .admin-profile-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* ── Filter Bar: full-width stacking ── */
+  .admin-search {
+    flex-direction: column;
+  }
+
+  .admin-search .admin-search-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-search .admin-select {
+    width: 100% !important;
+  }
+
+  /* ── Table-to-Card Transform ── */
+  .admin-table,
+  .admin-table thead,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table th,
+  .admin-table td {
+    display: block;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table tbody tr {
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    margin-bottom: 12px;
+    box-shadow: var(--admin-shadow);
+    padding: 0;
+  }
+
+  .admin-table tbody tr:hover {
+    background: var(--admin-card-bg);
+  }
+
+  .admin-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--admin-border);
+    text-align: right;
+  }
+
+  .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--admin-text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .admin-table .admin-empty td {
+    display: block;
+    text-align: center;
+  }
+
+  .admin-table .admin-empty td::before {
+    display: none;
+  }
+
+  /* ── Actions row in cards: wrap buttons ── */
+  .admin-table td:has(.admin-btn) {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .admin-table td div[style*="flex"] {
+    justify-content: flex-end !important;
+  }
+
+  /* ── Admin Header buttons wrap ── */
+  .admin-header-right {
+    gap: 8px;
+  }
+
+  .admin-user-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  .admin-logout-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  /* ── Tabs: horizontal scroll ── */
+  .admin-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+  }
+
+  .admin-tab {
+    white-space: nowrap;
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  /* ── Page header: stack on mobile ── */
+  .admin-content > div[style*="flex"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .admin-content > div[style*="flex"] .admin-btn {
+    width: 100%;
+  }
+
+  /* ── Modal padding ── */
+  .admin-modal-body {
+    padding: 16px;
+  }
+
+  .admin-modal-footer {
+    padding: 12px 16px;
+    flex-direction: column;
+  }
+
+  .admin-modal-footer .admin-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ── Quick Actions stack ── */
+  .admin-actions {
+    flex-direction: column;
+  }
+
+  .admin-actions .admin-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ── Pagination compact ── */
+  .admin-pagination {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 16px 12px;
+  }
+
+  .admin-page-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-content {
+    padding: 12px;
+  }
+
+  .admin-card-body {
+    padding: 16px;
+  }
+
+  .admin-card-header {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+/* ── Override inline widths for select elements in search bars ── */
+.admin-search .admin-select {
+  flex: 0 0 auto;
+}

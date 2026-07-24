@@ -75,18 +75,18 @@ export default function AdminWhatsAppOrders() {
                 ) : (
                   orders.map(o => (
                     <tr key={o.uuid}>
-                      <td style={{ fontWeight: 500 }}>{o.reseller_username}</td>
-                      <td>{o.product_name}</td>
-                      <td style={{ fontSize: 13, color: '#64748b' }}>{o.duration_display}</td>
-                      <td>{o.quantity}</td>
-                      <td style={{ fontWeight: 500 }}>{o.total_credits}</td>
-                      <td style={{ fontSize: 13, color: '#64748b' }}>
+                      <td data-label="Reseller" style={{ fontWeight: 500 }}>{o.reseller_username}</td>
+                      <td data-label="Product">{o.product_name}</td>
+                      <td data-label="Duration" style={{ fontSize: 13, color: '#64748b' }}>{o.duration_display}</td>
+                      <td data-label="Qty">{o.quantity}</td>
+                      <td data-label="Total" style={{ fontWeight: 500 }}>{o.total_credits}</td>
+                      <td data-label="Ordered" style={{ fontSize: 13, color: '#64748b' }}>
                         {new Date(o.created_at).toLocaleString()}
                       </td>
-                      <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: '#64748b' }}>
+                      <td data-label="Message" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: '#64748b' }}>
                         {o.message_text || '—'}
                       </td>
-                      <td>
+                      <td data-label="Actions">
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
                             className="admin-btn admin-btn-primary admin-btn-sm"

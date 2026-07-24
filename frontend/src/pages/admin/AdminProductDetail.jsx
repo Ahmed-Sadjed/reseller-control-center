@@ -211,20 +211,20 @@ export default function AdminProductDetail() {
                   ) : (
                     credentials.map(c => (
                       <tr key={c.id}>
-                        <td style={{ fontSize: 13, color: '#64748b' }}>
+                        <td data-label="Duration" style={{ fontSize: 13, color: '#64748b' }}>
                           {c.variant_display || '—'}
                         </td>
                         {isUP ? (
                           <>
-                            <td style={{ fontFamily: 'monospace', fontWeight: 500 }}>{c.username}</td>
-                            <td style={{ fontFamily: 'monospace' }}>{'●'.repeat(8)}</td>
+                            <td data-label="Username" style={{ fontFamily: 'monospace', fontWeight: 500 }}>{c.username}</td>
+                            <td data-label="Password" style={{ fontFamily: 'monospace' }}>{'●'.repeat(8)}</td>
                           </>
                         ) : (
-                          <td style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                          <td data-label="Code" style={{ fontFamily: 'monospace', fontWeight: 500 }}>
                             {c.code?.length > 30 ? c.code.slice(0, 30) + '...' : c.code}
                           </td>
                         )}
-                        <td>
+                        <td data-label="Status">
                           <span className={`admin-badge ${
                             c.status === 'available' ? 'green' :
                             c.status === 'used' ? 'gray' : 'red'
@@ -232,14 +232,14 @@ export default function AdminProductDetail() {
                             {c.status}
                           </span>
                         </td>
-                        <td>{c.assigned_to_username || '—'}</td>
-                        <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b' }}>
+                        <td data-label="Assigned To">{c.assigned_to_username || '—'}</td>
+                        <td data-label="Notes" style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b' }}>
                           {c.notes || '—'}
                         </td>
-                        <td style={{ fontSize: 13, color: '#64748b' }}>
+                        <td data-label="Expires" style={{ fontSize: 13, color: '#64748b' }}>
                           {c.expires_at ? new Date(c.expires_at).toLocaleDateString() : '—'}
                         </td>
-                        <td>
+                        <td data-label="Actions">
                           <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDelete(c.id)}>
                             🗑️
                           </button>
