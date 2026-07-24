@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
+import { useToast } from '../../context/ToastContext';
 import api from '../../lib/axios';
 
 function formatCredits(n) {
@@ -23,7 +24,7 @@ export default function AdminResellerDetail() {
   const [creditForm, setCreditForm] = useState({ amount: '', reason: 'Admin top-up' });
   const [passwordForm, setPasswordForm] = useState({ password: '' });
   const [actionLoading, setActionLoading] = useState(false);
-  const [alert, setAlert] = useState(null);
+  const { addToast } = useToast();
 
   const fetchReseller = useCallback(async () => {
     try {
@@ -46,11 +47,6 @@ export default function AdminResellerDetail() {
     fetchReseller();
   }, [fetchReseller]);
 
-  const showAlert = (msg, type = 'success') => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 4000);
-  };
-
   const handleCreditAdjust = async (e) => {
     e.preventDefault();
     setActionLoading(true);
@@ -61,10 +57,10 @@ export default function AdminResellerDetail() {
       });
       setShowCreditsModal(false);
       setCreditForm({ amount: '', reason: 'Admin top-up' });
-      showAlert('Credits updated successfully!');
+      addToast('Credits updated successfully!', 'success');
       fetchReseller();
     } catch (err) {
-      showAlert(err.response?.data?.error || 'Failed to adjust credits.', 'error');
+      addToast(err.response?.data?.error || 'Failed to adjust credits.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -77,9 +73,9 @@ export default function AdminResellerDetail() {
       await api.put(`/dashboard/resellers/${id}/`, { password: passwordForm.password });
       setShowPasswordModal(false);
       setPasswordForm({ password: '' });
-      showAlert('Password updated successfully!');
+      addToast('Password updated successfully!', 'success');
     } catch (err) {
-      showAlert(err.response?.data?.error || 'Failed to reset password.', 'error');
+      addToast(err.response?.data?.error || 'Failed to reset password.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -88,10 +84,10 @@ export default function AdminResellerDetail() {
   const handleToggle = async () => {
     try {
       await api.post(`/dashboard/resellers/${id}/toggle/`);
-      showAlert(`Reseller ${reseller.is_active ? 'deactivated' : 'activated'}.`);
+      addToast(`Reseller ${reseller.is_active ? 'deactivated' : 'activated'}.`, 'success');
       fetchReseller();
     } catch (err) {
-      showAlert('Failed to toggle status.', 'error');
+      addToast('Failed to toggle status.', 'error');
     }
   };
 
@@ -101,16 +97,40 @@ export default function AdminResellerDetail() {
       await api.delete(`/dashboard/resellers/${id}/`);
       navigate('/admin/resellers');
     } catch (err) {
-      showAlert('Failed to delete reseller.', 'error');
+      addToast('Failed to delete reseller.', 'error');
     }
   };
 
   if (loading) {
     return (
       <AdminLayout>
-        <div className="admin-loading">
-          <div className="admin-spinner"></div>
-          Loading reseller...
+        <div className="admin-profile-grid">
+          <div className="admin-card" style={{ padding: 32, textAlign: 'center' }}>
+            <div className="h-16 w-16 rounded-full bg-gray-200 animate-pulse mx-auto mb-4" />
+            <div className="h-5 w-24 bg-gray-200 animate-pulse rounded mx-auto mb-2" />
+            <div className="h-4 w-32 bg-gray-200 animate-pulse rounded mx-auto mb-4" />
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+              <div><div className="h-3 w-12 bg-gray-200 animate-pulse rounded mx-auto mb-2" /><div className="h-4 w-16 bg-gray-200 animate-pulse rounded mx-auto" /></div>
+              <div><div className="h-3 w-12 bg-gray-200 animate-pulse rounded mx-auto mb-2" /><div className="h-4 w-12 bg-gray-200 animate-pulse rounded mx-auto" /></div>
+              <div><div className="h-3 w-14 bg-gray-200 animate-pulse rounded mx-auto mb-2" /><div className="h-4 w-16 bg-gray-200 animate-pulse rounded mx-auto" /></div>
+              <div><div className="h-3 w-10 bg-gray-200 animate-pulse rounded mx-auto mb-2" /><div className="h-4 w-16 bg-gray-200 animate-pulse rounded mx-auto" /></div>
+            </div>
+          </div>
+          <div>
+            <div className="admin-card" style={{ marginBottom: 20, padding: 16 }}>
+              <div className="flex gap-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-9 w-32 bg-gray-200 animate-pulse rounded" />
+                ))}
+              </div>
+            </div>
+            <div className="admin-card">
+              <div className="admin-tabs" style={{ marginBottom: 0 }}>
+                <div className="h-10 w-24 bg-gray-200 animate-pulse rounded mr-2" />
+                <div className="h-10 w-28 bg-gray-200 animate-pulse rounded" />
+              </div>
+            </div>
+          </div>
         </div>
       </AdminLayout>
     );
@@ -139,12 +159,6 @@ export default function AdminResellerDetail() {
       <Link to="/admin/resellers" style={{ fontSize: 14, color: '#6366f1', textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}>
         ← Back to Resellers
       </Link>
-
-      {alert && (
-        <div className={`admin-alert ${alert.type}`}>
-          {alert.type === 'success' ? '✅' : '⚠️'} {alert.msg}
-        </div>
-      )}
 
       {/* Profile + Stats */}
       <div className="admin-profile-grid">

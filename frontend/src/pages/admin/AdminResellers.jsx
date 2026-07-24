@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
+import TableSkeleton from '../../components/skeletons/TableSkeleton';
 import api from '../../lib/axios';
 
 function formatCredits(n) {
@@ -123,10 +124,7 @@ export default function AdminResellers() {
       {/* Reseller Table */}
       <div className="admin-card">
         {loading ? (
-          <div className="admin-loading">
-            <div className="admin-spinner"></div>
-            Loading resellers...
-          </div>
+          <TableSkeleton rows={5} cols={7} columnWidths={['120px', '80px', '60px', '80px', '70px', '90px', '120px']} />
         ) : (
           <>
             <div className="admin-table-wrap">

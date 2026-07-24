@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../lib/axios';
 
+const ROWS = 5;
+
 const statusColors = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   COMPLETED: 'bg-green-100 text-green-800',
@@ -33,7 +35,32 @@ export default function OrdersHistory() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Order History</h1>
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading orders...</div>
+          <div className="bg-white shadow overflow-hidden rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex gap-8">
+                <div className="h-3 w-16 bg-gray-200 animate-pulse rounded" />
+                <div className="h-3 w-20 bg-gray-200 animate-pulse rounded" />
+                <div className="h-3 w-10 bg-gray-200 animate-pulse rounded" />
+                <div className="h-3 w-12 bg-gray-200 animate-pulse rounded" />
+                <div className="h-3 w-14 bg-gray-200 animate-pulse rounded" />
+                <div className="h-3 w-12 bg-gray-200 animate-pulse rounded" />
+                <div className="flex-1" />
+              </div>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {Array.from({ length: ROWS }).map((_, i) => (
+                <div key={i} className="px-6 py-4 flex gap-8 items-center">
+                  <div className="h-4 w-16 bg-gray-200 animate-pulse rounded" />
+                  <div className="h-4 w-28 bg-gray-200 animate-pulse rounded" />
+                  <div className="h-4 w-10 bg-gray-200 animate-pulse rounded" />
+                  <div className="h-4 w-14 bg-gray-200 animate-pulse rounded" />
+                  <div className="h-5 w-16 bg-gray-200 animate-pulse rounded-full" />
+                  <div className="h-4 w-20 bg-gray-200 animate-pulse rounded" />
+                  <div className="flex-1" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-12 text-gray-500">No orders yet.</div>
         ) : (

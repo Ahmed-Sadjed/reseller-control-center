@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import CredentialCard from '../components/CredentialCard';
+import CredentialCardSkeleton from '../components/skeletons/CredentialCardSkeleton';
 import api from '../lib/axios';
 import { formatCredentialBlock, downloadTextFile } from '../lib/helpers';
 
@@ -47,7 +48,20 @@ export default function ReceiptPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12 text-gray-500">Loading receipt...</div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="h-7 w-24 bg-gray-200 animate-pulse rounded" />
+              <div className="h-4 w-48 bg-gray-200 animate-pulse rounded mt-1" />
+            </div>
+            <div className="h-9 w-32 bg-gray-200 animate-pulse rounded" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <CredentialCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
       </Layout>
     );
   }

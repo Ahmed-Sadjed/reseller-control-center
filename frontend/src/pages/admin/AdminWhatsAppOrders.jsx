@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+import TableSkeleton from '../../components/skeletons/TableSkeleton';
 import api from '../../lib/axios';
 
 export default function AdminWhatsAppOrders() {
@@ -45,10 +46,7 @@ export default function AdminWhatsAppOrders() {
 
       <div className="admin-card">
         {loading ? (
-          <div className="admin-loading">
-            <div className="admin-spinner"></div>
-            Loading orders...
-          </div>
+          <TableSkeleton rows={4} cols={8} columnWidths={['100px', '120px', '80px', '40px', '60px', '120px', '120px', '160px']} />
         ) : (
           <div className="admin-table-wrap">
             <table className="admin-table">

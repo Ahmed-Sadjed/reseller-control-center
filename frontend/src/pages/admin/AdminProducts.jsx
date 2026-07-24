@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
+import TableSkeleton from '../../components/skeletons/TableSkeleton';
+import { useToast } from '../../context/ToastContext';
 import api from '../../lib/axios';
 
 const TYPE_LABELS = {
@@ -68,12 +70,7 @@ export default function AdminProducts() {
   const [savingCategory, setSavingCategory] = useState(false);
 
   // Alert
-  const [alert, setAlert] = useState(null);
-
-  const showAlert = (msg, type = 'success') => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 4000);
-  };
+  const { addToast } = useToast();
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -231,7 +228,7 @@ export default function AdminProducts() {
           }
         }
 
-        showAlert('Product updated successfully!');
+        addToast('Product updated successfully!', 'success');
       } else {
         const { data } = await api.post('/dashboard/products/create/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -248,7 +245,7 @@ export default function AdminProducts() {
           await api.post(`/dashboard/products/${productId}/variants/create/`, payload);
         }
 
-        showAlert('Product created successfully!');
+        addToast('Product created successfully!', 'success');
       }
 
       setShowProductModal(false);
@@ -270,11 +267,11 @@ export default function AdminProducts() {
     setDeleting(true);
     try {
       await api.delete(`/dashboard/products/${deleteTarget.id}/`);
-      showAlert(`Product "${deleteTarget.name}" deleted.`);
+      addToast(`Product "${deleteTarget.name}" deleted.`, 'success');
       setDeleteTarget(null);
       fetchProducts();
     } catch (err) {
-      showAlert('Failed to delete product.', 'error');
+      addToast('Failed to delete product.', 'error');
     } finally {
       setDeleting(false);
     }
@@ -322,10 +319,10 @@ export default function AdminProducts() {
 
       if (editingVariant) {
         await api.put(`/dashboard/products/${variantProduct.id}/variants/${editingVariant.id}/`, payload);
-        showAlert('Variant updated!');
+        addToast('Variant updated!', 'success');
       } else {
         await api.post(`/dashboard/products/${variantProduct.id}/variants/create/`, payload);
-        showAlert('Variant added!');
+        addToast('Variant added!', 'success');
       }
 
       setEditingVariant(null);
@@ -337,7 +334,7 @@ export default function AdminProducts() {
       const { data } = await api.get(`/dashboard/products/${variantProduct.id}/variants/`);
       setVariants(data);
     } catch (err) {
-      showAlert('Failed to save variant.', 'error');
+      addToast('Failed to save variant.', 'error');
     } finally {
       setSavingVariant(false);
     }
@@ -347,11 +344,11 @@ export default function AdminProducts() {
     if (!window.confirm(`Delete variant for ${variantProduct.name}?`)) return;
     try {
       await api.delete(`/dashboard/products/${variantProduct.id}/variants/${variant.id}/`);
-      showAlert('Variant deleted.');
+      addToast('Variant deleted.', 'success');
       const { data } = await api.get(`/dashboard/products/${variantProduct.id}/variants/`);
       setVariants(data);
     } catch (err) {
-      showAlert('Failed to delete variant.', 'error');
+      addToast('Failed to delete variant.', 'error');
     }
   };
 
@@ -390,19 +387,19 @@ export default function AdminProducts() {
         await api.put(`/dashboard/categories/${editingCategory.id}/`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        showAlert('Category updated!');
+        addToast('Category updated!', 'success');
       } else {
         await api.post('/dashboard/categories/create/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        showAlert('Category created!');
+        addToast('Category created!', 'success');
       }
 
       setShowCategoryModal(false);
       fetchCategories();
     } catch (err) {
       const data = err.response?.data;
-      showAlert(typeof data === 'string' ? data : 'Failed to save category.', 'error');
+      addToast(typeof data === 'string' ? data : 'Failed to save category.', 'error');
     } finally {
       setSavingCategory(false);
     }
@@ -412,11 +409,11 @@ export default function AdminProducts() {
     if (!window.confirm(`Delete category "${cat.name}"? This cannot be undone if it has no products.`)) return;
     try {
       await api.delete(`/dashboard/categories/${cat.id}/`);
-      showAlert(`Category "${cat.name}" deleted.`);
+      addToast(`Category "${cat.name}" deleted.`, 'success');
       fetchCategories();
     } catch (err) {
       const data = err.response?.data;
-      showAlert(data?.error || 'Failed to delete category.', 'error');
+      addToast(data?.error || 'Failed to delete category.', 'error');
     }
   };
 
@@ -451,12 +448,6 @@ export default function AdminProducts() {
           </button>
         </div>
       </div>
-
-      {alert && (
-        <div className={`admin-alert ${alert.type}`}>
-          {alert.type === 'success' ? '✓' : '⚠'} {alert.msg}
-        </div>
-      )}
 
       {/* ── Product Filters ── */}
       <div className="admin-card" style={{ marginBottom: 20 }}>
@@ -493,10 +484,7 @@ export default function AdminProducts() {
       {/* ── Product Table ── */}
       <div className="admin-card">
         {loading ? (
-          <div className="admin-loading">
-            <div className="admin-spinner"></div>
-            Loading products...
-          </div>
+          <TableSkeleton rows={6} cols={9} columnWidths={['40px', '120px', '80px', '100px', '100px', '80px', '70px', '60px', '120px']} />
         ) : (
           <div className="admin-table-wrap">
             <table className="admin-table">
@@ -680,7 +668,7 @@ export default function AdminProducts() {
                   <label className="admin-label">Product Image</label>
                   <input type="file" accept="image/*" onChange={handleProductImageChange} style={{ fontSize: 14 }} />
                   {productImagePreview && (
-                    <img src={productImagePreview} alt="Preview" style={{ marginTop: 8, maxHeight: 100, borderRadius: 6 }} />
+                    <img src={productImagePreview} alt="Preview" style={{ marginTop: 8, height: 100, width: 'auto', borderRadius: 6 }} />
                   )}
                 </div>
 

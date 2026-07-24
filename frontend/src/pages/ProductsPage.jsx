@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import ProductCard from '../components/ProductCard';
+import ProductCardSkeleton from '../components/skeletons/ProductCardSkeleton';
 import { useToast } from '../context/ToastContext';
 import api from '../lib/axios';
 
@@ -138,7 +139,11 @@ export default function ProductsPage() {
         )}
 
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading products...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
         ) : products.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500">No products found.</p>

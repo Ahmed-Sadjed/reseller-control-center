@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
+import TableSkeleton from '../../components/skeletons/TableSkeleton';
+import { useToast } from '../../context/ToastContext';
 import api from '../../lib/axios';
 
 export default function AdminProductDetail() {
@@ -20,7 +22,7 @@ export default function AdminProductDetail() {
   const [addForm, setAddForm] = useState({ variant_id: '', username: '', password: '', code: '', notes: '', expires_at: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
-  const [alert, setAlert] = useState(null);
+  const { addToast } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -46,8 +48,7 @@ export default function AdminProductDetail() {
   useEffect(() => { setPage(1); }, [statusFilter, search]);
 
   const showAlertMsg = (msg, type = 'success') => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 4000);
+    addToast(msg, type);
   };
 
   const handleAdd = async (e) => {
@@ -90,9 +91,8 @@ export default function AdminProductDetail() {
   if (loading && !product) {
     return (
       <AdminLayout>
-        <div className="admin-loading">
-          <div className="admin-spinner"></div>
-          Loading product...
+        <div className="admin-card" style={{ margin: '28px' }}>
+          <TableSkeleton rows={5} cols={7} columnWidths={['80px', '120px', '120px', '70px', '100px', '90px', '60px']} />
         </div>
       </AdminLayout>
     );
@@ -105,12 +105,6 @@ export default function AdminProductDetail() {
       <Link to="/admin/products" style={{ fontSize: 14, color: '#6366f1', textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}>
         ← Back to Products
       </Link>
-
-      {alert && (
-        <div className={`admin-alert ${alert.type}`}>
-          {alert.type === 'success' ? '✅' : '⚠️'} {alert.msg}
-        </div>
-      )}
 
       {/* Product Info */}
       <div className="admin-card" style={{ marginBottom: 24 }}>
@@ -181,10 +175,7 @@ export default function AdminProductDetail() {
       {/* Credentials Table */}
       <div className="admin-card">
         {loading ? (
-          <div className="admin-loading">
-            <div className="admin-spinner"></div>
-            Loading...
-          </div>
+          <TableSkeleton rows={5} cols={7} columnWidths={['80px', '120px', '120px', '70px', '100px', '90px', '60px']} />
         ) : (
           <>
             <div className="admin-table-wrap">

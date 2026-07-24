@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+import { useToast } from '../../context/ToastContext';
 import api from '../../lib/axios';
 
 export default function AdminSettings() {
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [alert, setAlert] = useState(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     api.get('/dashboard/settings/')
       .then(res => setWhatsappPhone(res.data.whatsapp_phone || ''))
-      .catch(() => setAlert({ msg: 'Failed to load settings.', type: 'error' }))
+      .catch(() => addToast('Failed to load settings.', 'error'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -25,9 +26,9 @@ export default function AdminSettings() {
     setSaving(true);
     try {
       await api.put('/dashboard/settings/', { whatsapp_phone: whatsappPhone });
-      showAlert('WhatsApp number saved!');
+      addToast('WhatsApp number saved!', 'success');
     } catch {
-      showAlert('Failed to save.', 'error');
+      addToast('Failed to save.', 'error');
     } finally {
       setSaving(false);
     }
@@ -36,7 +37,19 @@ export default function AdminSettings() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="admin-loading"><div className="admin-spinner"></div> Loading...</div>
+        <div className="admin-content">
+          <div className="h-7 w-32 bg-gray-200 animate-pulse rounded mb-2" />
+          <div className="h-4 w-64 bg-gray-200 animate-pulse rounded mb-6" />
+          <div className="admin-card">
+            <div className="admin-card-body space-y-4">
+              <div className="h-5 w-48 bg-gray-200 animate-pulse rounded" />
+              <div className="h-4 w-full bg-gray-200 animate-pulse rounded" />
+              <div className="h-4 w-3/4 bg-gray-200 animate-pulse rounded" />
+              <div className="h-10 w-72 bg-gray-200 animate-pulse rounded" />
+              <div className="h-9 w-20 bg-gray-200 animate-pulse rounded" />
+            </div>
+          </div>
+        </div>
       </AdminLayout>
     );
   }
@@ -45,12 +58,6 @@ export default function AdminSettings() {
     <AdminLayout>
       <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>⚙️ Settings</h1>
       <p style={{ fontSize: 14, color: '#64748b', marginBottom: 24 }}>Configure your admin preferences</p>
-
-      {alert && (
-        <div className={`admin-alert ${alert.type}`} style={{ marginBottom: 16 }}>
-          {alert.type === 'success' ? '✅' : '⚠️'} {alert.msg}
-        </div>
-      )}
 
       <div className="admin-card">
         <div className="admin-card-body">
